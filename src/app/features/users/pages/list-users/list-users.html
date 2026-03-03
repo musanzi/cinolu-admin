@@ -46,7 +46,7 @@
         [loading]="isDownloading"
         [disabled]="userCount === 0 || isDownloading"
         (clicked)="onDownloadUsers()">
-        @if (isDownloading) {
+        @if (!isDownloading) {
           <i-lucide [name]="icons.Download" class="size-4" />
         }
         Télécharger CSV
