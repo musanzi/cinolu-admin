@@ -15,12 +15,11 @@ import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { UsersStore } from '../../store/users.store';
 import { ApiImgPipe } from '@shared/pipes/api-img.pipe';
 import { FilterUsersDto } from '../../dto/users/filter-users.dto';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { UiAvatar, UiButton, UiConfirmDialog, UiPagination, UiBadge } from '@shared/ui';
 import { ConfirmationService } from '@shared/services/confirmation';
 import { UiTableSkeleton } from '@shared/ui/table-skeleton/table-skeleton';
 import { DatePipe } from '@angular/common';
+import { bindSearchControlToQuery, toPageQueryValue } from '@shared/helpers';
 
 @Component({
   selector: 'app-list-users',
@@ -65,22 +64,13 @@ export class ListUsers {
     effect(() => {
       this.store.loadAll(this.queryParams());
     });
-    const searchValue = this.searchForm.get('q');
-    searchValue?.valueChanges
-      .pipe(debounceTime(1000), distinctUntilChanged(), takeUntilDestroyed(this.#destroyRef))
-      .subscribe((searchValue: string) => {
-        this.queryParams.update((qp) => ({
-          ...qp,
-          q: searchValue ? searchValue.trim() : null,
-          page: null
-        }));
-      });
+    bindSearchControlToQuery(this.searchForm.get('q'), this.queryParams, this.#destroyRef, 1000);
   }
 
   onPageChange(currentPage: number): void {
     this.queryParams.update((qp) => ({
       ...qp,
-      page: currentPage === 1 ? null : currentPage.toString()
+      page: toPageQueryValue(currentPage)
     }));
   }
 

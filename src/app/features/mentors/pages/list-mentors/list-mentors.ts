@@ -5,10 +5,9 @@ import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MentorsStore } from '../../store/mentors.store';
 import { FilterMentorsProfileDto } from '../../dto/mentors/filter-mentors-profiles.dto';
 import { MentorStatus } from '../../enums/mentor.enum';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { UiButton, UiPagination, UiTabs, UiBadge } from '@shared/ui';
 import { UiTableSkeleton } from '@shared/ui/table-skeleton/table-skeleton';
+import { bindSearchControlToQuery, toPageQueryValue } from '@shared/helpers';
 
 @Component({
   selector: 'app-mentors-list',
@@ -54,23 +53,18 @@ export class ListMentors {
     effect(() => {
       this.store.loadAll(this.queryParams());
     });
-    const searchValue = this.searchForm.get('q');
-    searchValue?.valueChanges
-      .pipe(debounceTime(1000), distinctUntilChanged(), takeUntilDestroyed(this.#destroyRef))
-      .subscribe((searchValue: string) => {
-        this.queryParams.update((qp) => ({ ...qp, q: searchValue, page: null }));
-      });
+    bindSearchControlToQuery(this.searchForm.get('q'), this.queryParams, this.#destroyRef, 1000);
   }
 
   onTabChange(tabName: string): void {
-    const status = tabName as MentorStatus;
+    const status = tabName === 'all' ? null : (tabName as MentorStatus);
     this.queryParams.update((qp) => ({ ...qp, status, page: null }));
   }
 
   onPageChange(currentPage: number): void {
     this.queryParams.update((qp) => ({
       ...qp,
-      page: currentPage === 1 ? null : currentPage.toString()
+      page: toPageQueryValue(currentPage)
     }));
   }
 

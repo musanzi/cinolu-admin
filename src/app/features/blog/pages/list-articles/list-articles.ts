@@ -6,12 +6,11 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Eye, Funnel, LucideAngularModule, Pencil, Plus, Search, Trash } from 'lucide-angular';
 import { ApiImgPipe } from '@shared/pipes/api-img.pipe';
 import { ArticlesStore } from '../../store/articles.store';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { UiAvatar, UiButton, UiConfirmDialog, UiPagination, UiTabs, UiBadge } from '@shared/ui';
-import { IArticle } from '@shared/models';
+import { Article } from '@shared/models';
 import { ConfirmationService } from '@shared/services/confirmation';
 import { UiTableSkeleton } from '@shared/ui/table-skeleton/table-skeleton';
+import { bindSearchControlToQuery, toPageQueryValue } from '@shared/helpers';
 
 @Component({
   selector: 'app-article-list',
@@ -63,12 +62,7 @@ export class ListArticles {
     effect(() => {
       this.store.loadAll(this.queryParams());
     });
-    const searchValue = this.searchForm.get('q');
-    searchValue?.valueChanges
-      .pipe(debounceTime(1000), distinctUntilChanged(), takeUntilDestroyed(this.#destroyRef))
-      .subscribe((searchValue: string) => {
-        this.queryParams.update((qp) => ({ ...qp, q: searchValue, page: null }));
-      });
+    bindSearchControlToQuery(this.searchForm.get('q'), this.queryParams, this.#destroyRef, 1000);
   }
 
   onTabChange(tabName: string): void {
@@ -79,7 +73,7 @@ export class ListArticles {
   onPageChange(currentPage: number): void {
     this.queryParams.update((qp) => ({
       ...qp,
-      page: currentPage === 1 ? null : currentPage.toString()
+      page: toPageQueryValue(currentPage)
     }));
   }
 
@@ -105,7 +99,7 @@ export class ListArticles {
     });
   }
 
-  isPublished(article: IArticle): boolean {
+  isPublished(article: Article): boolean {
     return !!article.published_at && new Date(article.published_at) <= new Date();
   }
 }

@@ -5,7 +5,7 @@ import { catchError, map, of, pipe, switchMap, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { FilterUsersDto } from '../dto/users/filter-users.dto';
 import { buildQueryParams } from '@shared/helpers';
-import { IUser } from '@shared/models';
+import { User } from '@shared/models';
 import { ToastrService } from '@shared/services/toast/toastr.service';
 import { Router } from '@angular/router';
 import { UserDto } from '../dto/users/user.dto';
@@ -15,9 +15,9 @@ interface IUsersStore {
   isUpdating: boolean;
   isDownloading: boolean;
   isImportingCsv: boolean;
-  users: [IUser[], number];
-  user: IUser | null;
-  staff: IUser[];
+  users: [User[], number];
+  user: User | null;
+  staff: User[];
 }
 
 export const UsersStore = signalStore(
@@ -31,17 +31,17 @@ export const UsersStore = signalStore(
     staff: []
   }),
   withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService),
-    _router: inject(Router)
+    http: inject(HttpClient),
+    toast: inject(ToastrService),
+    router: inject(Router)
   })),
-  withMethods(({ _http, _toast, _router, ...store }) => ({
+  withMethods(({ http, toast, router, ...store }) => ({
     loadAll: rxMethod<FilterUsersDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((queryParams) => {
           const params = buildQueryParams(queryParams);
-          return _http.get<{ data: [IUser[], number] }>('users', { params }).pipe(
+          return http.get<{ data: [User[], number] }>('users', { params }).pipe(
             map(({ data }) => {
               patchState(store, { isLoading: false, users: data });
             }),
@@ -57,7 +57,7 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true } as Partial<IUsersStore>)),
         switchMap(() =>
-          _http.get<{ data: IUser[] }>('users/staff').pipe(
+          http.get<{ data: User[] }>('users/staff').pipe(
             map(({ data }) => {
               patchState(store, { isLoading: false, staff: data } as Partial<IUsersStore>);
             }),
@@ -73,7 +73,7 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((email) =>
-          _http.get<{ data: IUser }>(`users/${email}`).pipe(
+          http.get<{ data: User }>(`users/${email}`).pipe(
             map(({ data }) => {
               patchState(store, { isLoading: false, user: data });
             }),
@@ -89,14 +89,14 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((dto) =>
-          _http.post<{ data: IUser }>('users', dto).pipe(
+          http.post<{ data: User }>('users', dto).pipe(
             map(({ data }) => {
-              _router.navigate(['/users']);
-              _toast.showSuccess('Utilisateur ajouté avec succès');
+              router.navigate(['/users']);
+              toast.showSuccess('Utilisateur ajouté avec succès');
               patchState(store, { isLoading: false, user: data });
             }),
             catchError(() => {
-              _toast.showError("Erreur lors de l'ajout de l'utilisateur");
+              toast.showError("Erreur lors de l'ajout de l'utilisateur");
               patchState(store, { isLoading: false });
               return of(null);
             })
@@ -108,14 +108,14 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isUpdating: true })),
         switchMap((params) =>
-          _http.patch<{ data: IUser }>(`users/${params.id}`, params.dto).pipe(
+          http.patch<{ data: User }>(`users/${params.id}`, params.dto).pipe(
             map(({ data }) => {
-              _router.navigate(['/users']);
-              _toast.showSuccess('Utilisateur mis à jour avec succès');
+              router.navigate(['/users']);
+              toast.showSuccess('Utilisateur mis à jour avec succès');
               patchState(store, { isUpdating: false, user: data });
             }),
             catchError(() => {
-              _toast.showError("Erreur lors de la mise à jour de l'utilisateur");
+              toast.showError("Erreur lors de la mise à jour de l'utilisateur");
               patchState(store, { isUpdating: false });
               return of(null);
             })
@@ -127,16 +127,16 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((userId) =>
-          _http.delete<void>(`users/${userId}`).pipe(
+          http.delete<void>(`users/${userId}`).pipe(
             map(() => {
               const [list, count] = store.users();
               const filtered = list.filter((u) => u.id !== userId);
               patchState(store, { isLoading: false, users: [filtered, Math.max(0, count - 1)] });
-              _toast.showSuccess('Utilisateur supprimé avec succès');
+              toast.showSuccess('Utilisateur supprimé avec succès');
             }),
             catchError(() => {
               patchState(store, { isLoading: false });
-              _toast.showError("Échec de la suppression de l'utilisateur");
+              toast.showError("Échec de la suppression de l'utilisateur");
               return of(null);
             })
           )
@@ -148,7 +148,7 @@ export const UsersStore = signalStore(
         tap(() => patchState(store, { isDownloading: true })),
         switchMap((queryParams) => {
           const params = buildQueryParams(queryParams);
-          return _http.get('users/export/users.csv', { params, responseType: 'blob' }).pipe(
+          return http.get('users/export/users.csv', { params, responseType: 'blob' }).pipe(
             tap((blob) => {
               const url = window.URL.createObjectURL(blob);
               const a = document.createElement('a');
@@ -172,14 +172,14 @@ export const UsersStore = signalStore(
         switchMap(({ file, onSuccess }) => {
           const formData = new FormData();
           formData.append('file', file);
-          return _http.post<unknown>('users/import-csv', formData).pipe(
+          return http.post<unknown>('users/import-csv', formData).pipe(
             tap(() => {
-              _toast.showSuccess('Utilisateurs importés avec succès');
+              toast.showSuccess('Utilisateurs importés avec succès');
               patchState(store, { isImportingCsv: false });
               onSuccess();
             }),
             catchError(() => {
-              _toast.showError("Une erreur s'est produite lors de l'import des utilisateurs");
+              toast.showError("Une erreur s'est produite lors de l'import des utilisateurs");
               patchState(store, { isImportingCsv: false });
               return of(null);
             })

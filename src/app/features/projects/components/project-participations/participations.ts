@@ -66,12 +66,20 @@ export class Participations {
     { label: 'Déplacer', value: 'move' },
     { label: 'Retirer', value: 'remove' }
   ];
-  movePhaseOptions = computed(() => this.phasesStore.sortedPhases().map((p) => ({ label: p.name, value: p.id })));
+  movePhaseOptions = computed(() =>
+    this.phasesStore.sortedPhases().map((phase) => ({ label: phase.name, value: phase.id }))
+  );
   selectedCount = computed(() => this.selectedIds().size);
+  projectId = computed(() => this.project()?.id ?? null);
+  projectSlug = computed(() => this.project()?.slug ?? null);
+  requestDto = computed<FilterParticipationsDto>(() => ({
+    page: this.currentPage(),
+    q: this.searchQuery()
+  }));
   isAllFilteredSelected = computed(() => {
     const ids = this.selectedIds();
-    const filtered = this.participationsByPhase();
-    return filtered.length > 0 && filtered.every((p) => ids.has(getParticipationKey(p)));
+    const keys = this.filteredParticipationKeys();
+    return keys.length > 0 && keys.every((key) => ids.has(key));
   });
   rawParticipations = computed(() => this.projectsStore.participations()[0]);
   totalServerParticipations = computed(() => this.projectsStore.participations()[1]);
@@ -86,48 +94,19 @@ export class Participations {
     if (!phaseId) return null;
     return this.phasesStore.sortedPhases().find((p) => p.id === phaseId) ?? null;
   });
-  totalParticipations = computed(() => this.totalServerParticipations());
-  phaseCounts = computed(() => {
-    const phases = this.phasesStore.sortedPhases();
-    const list = this.rawParticipations();
-    return new Map(phases.map((ph) => [ph.id, list.filter((p) => p.phases?.some((x) => x.id === ph.id)).length]));
-  });
+
   phaseFilterOptions = computed(() => {
     const phases = this.phasesStore.sortedPhases();
-    const counts = this.phaseCounts();
-    const total = this.totalParticipations();
-    const options = [{ label: `Tous (${total})`, value: '' }];
-    phases.forEach((phase) => {
-      const count = counts.get(phase.id) ?? 0;
-      options.push({ label: `${phase.name} (${count})`, value: phase.id });
-    });
+    const options = [{ label: `Tous (${this.totalServerParticipations()})`, value: '' }];
+    for (const phase of phases) {
+      options.push({ label: `${phase.name} (${phase?.participationsCount})`, value: phase.id });
+    }
     return options;
   });
 
   constructor() {
-    effect(() => {
-      const proj = this.project();
-      if (proj?.id) {
-        this.phasesStore.loadAll(proj.id);
-      }
-    });
-
-    // Reset to page 1 when search or phase changes
-    effect(() => {
-      this.searchQuery();
-      this.selectedPhase();
-      this.currentPage.set(1);
-    });
-
-    effect(() => {
-      const proj = this.project();
-      if (!proj?.id) return;
-      const dto: FilterParticipationsDto = { page: this.currentPage(), q: this.searchQuery() };
-      this.projectsStore.loadParticipations({ projectId: proj.id, dto });
-    });
+    this.setupEffects();
   }
-
-  getParticipationKey = getParticipationKey;
 
   onPageChange(page: number): void {
     this.currentPage.set(page);
@@ -138,8 +117,8 @@ export class Participations {
   }
 
   toggleSelect(id: string): void {
-    this.selectedIds.update((set) => {
-      const next = new Set(set);
+    this.selectedIds.update((current) => {
+      const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
@@ -147,13 +126,13 @@ export class Participations {
   }
 
   toggleSelectAll(): void {
-    const filteredIds = new Set(this.participationsByPhase().map(getParticipationKey));
-    this.selectedIds.update((set) => {
-      const next = new Set(set);
+    const filteredIds = this.filteredParticipationKeys();
+    this.selectedIds.update((current) => {
+      const next = new Set(current);
       if (this.isAllFilteredSelected()) {
-        for (const id of filteredIds) next.delete(id);
+        filteredIds.forEach((id) => next.delete(id));
       } else {
-        for (const id of filteredIds) next.add(id);
+        filteredIds.forEach((id) => next.add(id));
       }
       return next;
     });
@@ -184,38 +163,6 @@ export class Participations {
     this.executePhaseOperation(this.removeTargetPhase(), 'remove');
   }
 
-  private executePhaseOperation(phaseId: string | null, operation: 'move' | 'remove'): void {
-    const ids = this.getParticipationsIds();
-    const proj = this.project();
-    if (!phaseId || ids.length === 0 || !proj?.slug) return;
-    const handler =
-      operation === 'move' ? this.projectsStore.moveParticipations : this.projectsStore.removeParticipations;
-    const targetSignal = operation === 'move' ? this.moveTargetPhase : this.removeTargetPhase;
-    handler.call(this.projectsStore, {
-      dto: { ids, phaseId },
-      onSuccess: () => {
-        this.refreshProjectData(proj);
-        this.clearSelection();
-        targetSignal.set(null);
-      }
-    });
-  }
-
-  private refreshProjectData(proj: IProject): void {
-    this.projectsStore.loadOne(proj.slug);
-    if (proj.id) {
-      const dto: FilterParticipationsDto = { page: this.currentPage(), q: this.searchQuery() };
-      this.projectsStore.loadParticipations({ projectId: proj.id, dto });
-    }
-  }
-
-  private getParticipationsIds(): string[] {
-    const selectedKeys = this.selectedIds();
-    return this.rawParticipations()
-      .filter((p) => selectedKeys.has(getParticipationKey(p)))
-      .map((p) => p.id);
-  }
-
   triggerCsvFileSelect(): void {
     this.csvFileInput()?.nativeElement?.click();
   }
@@ -232,16 +179,74 @@ export class Participations {
   }
 
   importCsv(): void {
-    const proj = this.project();
+    const projectId = this.projectId();
+    const projectSlug = this.projectSlug();
     const file = this.selectedCsvFile();
-    if (!proj?.id || !proj?.slug || !file) return;
+    if (!projectId || !projectSlug || !file) return;
+
     this.projectsStore.importParticipantsCsv({
-      projectId: proj.id,
+      projectId,
       file,
       onSuccess: () => {
-        this.refreshProjectData(proj);
+        this.refreshProjectData();
         this.clearCsvSelection();
       }
     });
+  }
+
+  private setupEffects(): void {
+    effect(() => {
+      const projectId = this.projectId();
+      if (projectId) this.phasesStore.loadAll(projectId);
+    });
+
+    effect(() => {
+      this.searchQuery();
+      this.selectedPhase();
+      this.currentPage.set(1);
+    });
+
+    effect(() => {
+      const projectId = this.projectId();
+      if (!projectId) return;
+      this.projectsStore.loadParticipations({ projectId, dto: this.requestDto() });
+    });
+  }
+
+  private executePhaseOperation(phaseId: string | null, operation: string): void {
+    const ids = this.getParticipationsIds();
+    const projectSlug = this.projectSlug();
+    if (!phaseId || ids.length === 0 || !projectSlug) return;
+
+    const handler =
+      operation === 'move' ? this.projectsStore.moveParticipations : this.projectsStore.removeParticipations;
+    const targetSignal = operation === 'move' ? this.moveTargetPhase : this.removeTargetPhase;
+
+    handler.call(this.projectsStore, {
+      dto: { ids, phaseId },
+      onSuccess: () => {
+        this.refreshProjectData();
+        this.clearSelection();
+        targetSignal.set(null);
+      }
+    });
+  }
+
+  private refreshProjectData(): void {
+    const projectSlug = this.projectSlug();
+    const projectId = this.projectId();
+    if (projectSlug) this.projectsStore.loadOne(projectSlug);
+    if (projectId) this.projectsStore.loadParticipations({ projectId, dto: this.requestDto() });
+  }
+
+  private filteredParticipationKeys(): string[] {
+    return this.participationsByPhase().map(getParticipationKey);
+  }
+
+  private getParticipationsIds(): string[] {
+    const selectedKeys = this.selectedIds();
+    return this.rawParticipations()
+      .filter((p) => selectedKeys.has(getParticipationKey(p)))
+      .map((p) => p.id);
   }
 }

@@ -18,3 +18,17 @@ export * from './mentor-profile.model';
 export * from './opportunity.model';
 export * from './attachment.model';
 export * from './notification.model';
+
+// Modern aliases without the legacy "I" prefix.
+export type { IBase as BaseEntity } from './base.model';
+export type { IUser as User } from './user.model';
+export type { IArticle as Article, IComment as ArticleComment } from './article.model';
+export type { ITag as Tag } from './tag.model';
+export type { IImage as Image } from './image.model';
+export type { IProject as Project } from './project.model';
+export type { IProjectParticipation as ProjectParticipation } from './participation.model';
+export type { IMentorProfile as MentorProfile, IExperience as MentorExperience } from './mentor-profile.model';
+export type { IExpertise as Expertise } from './expertise.model';
+export type { IVenture as Venture } from './venture.model';
+export type { ICategory as Category } from './category.model';
+export type { IRole as Role } from './role.model';

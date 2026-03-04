@@ -1,4 +1,4 @@
-import { Component, computed, ElementRef, inject, input, OnDestroy, output, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, ElementRef, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import {
   LucideAngularModule,
@@ -11,12 +11,12 @@ import {
 } from 'lucide-angular';
 import { LINK_GROUPS } from '../../data/links.data';
 import { IUser } from '@shared/models';
-import { filter, fromEvent, Subject } from 'rxjs';
+import { filter, fromEvent } from 'rxjs';
 import { AuthStore } from '@core/auth/auth.store';
-import { ILinkGroup } from 'src/app/layout/types/link.type';
 import { environment } from '@env/environment';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgOptimizedImage } from '@angular/common';
+import { ILinkGroup } from '../../types/link.type';
 
 @Component({
   selector: 'app-mobile-menu',
@@ -24,13 +24,12 @@ import { NgOptimizedImage } from '@angular/common';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [LucideAngularModule, RouterModule, NgOptimizedImage]
 })
-export class MobileMenu implements OnDestroy {
+export class MobileMenu {
   user = input.required<IUser | null>();
   signOut = output<void>();
   isOpen = signal<boolean>(false);
   icons = { Menu, Calendar, House, ChevronDown, LogOut, ExternalLink };
   #elementRef = inject(ElementRef);
-  #destroy$ = new Subject<void>();
   #router = inject(Router);
   style = input<string>();
   currentUrl = signal(this.#router.url);
@@ -104,10 +103,5 @@ export class MobileMenu implements OnDestroy {
 
   closeNav(): void {
     this.isOpen.set(false);
-  }
-
-  ngOnDestroy(): void {
-    this.#destroy$.next();
-    this.#destroy$.complete();
   }
 }

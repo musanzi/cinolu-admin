@@ -11,6 +11,7 @@ export interface IPhase extends IBase {
   ended_at: string;
   project: IProject;
   participations: IUser[];
-  mentors?: (IUser | string)[];
+  participationsCount?: number;
+  mentors?: IUser[];
   deliverables: IDeliverable[];
 }

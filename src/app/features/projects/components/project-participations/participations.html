@@ -1,94 +1,105 @@
 @let totalFiltered = participationsByPhase().length;
-@let totalCount = totalParticipations();
-
-@if (project()) {
-  <div class="relative flex flex-col gap-6 lg:gap-7">
-    <div class="rounded-2xl border border-slate-200/70 bg-white/85 p-4 sm:p-5">
-      <input
-        #csvFileInput
-        [id]="'participants-csv-input'"
-        type="file"
-        accept=".csv"
-        class="sr-only"
-        (change)="onCsvFileSelected($event)"
-        [disabled]="projectsStore.isImportingCsv()" />
-
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex flex-wrap items-center gap-3">
-          <app-ui-button
-            type="button"
-            variant="outlined"
-            size="small"
-            [loading]="projectsStore.isImportingCsv()"
-            [disabled]="projectsStore.isImportingCsv()"
-            (clicked)="triggerCsvFileSelect()">
-            <span class="flex items-center gap-2">
-              <i-lucide [name]="icons.Upload" class="size-4 shrink-0" />
-              @if (selectedCsvFile()) {
-                Changer le fichier
-              } @else {
-                Choisir un fichier CSV
-              }
-            </span>
-          </app-ui-button>
-
-          @if (selectedCsvFile()) {
-            <span class="max-w-[300px] truncate text-sm font-medium text-slate-600" [title]="selectedCsvFile()?.name">
-              {{ selectedCsvFile()?.name }}
-            </span>
-          }
-        </div>
-
+@let totalCount = totalServerParticipations();
+<div class="relative flex flex-col gap-6 lg:gap-7">
+  <div class="rounded-2xl border border-slate-200/70 bg-white/85 p-4 sm:p-5">
+    <input
+      #csvFileInput
+      [id]="'participants-csv-input'"
+      type="file"
+      accept=".csv"
+      class="sr-only"
+      (change)="onCsvFileSelected($event)"
+      [disabled]="projectsStore.isImportingCsv()" />
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-wrap items-center gap-3">
+        <app-ui-button
+          type="button"
+          variant="outlined"
+          size="small"
+          [loading]="projectsStore.isImportingCsv()"
+          [disabled]="projectsStore.isImportingCsv()"
+          (clicked)="triggerCsvFileSelect()">
+          <span class="flex items-center gap-2">
+            <i-lucide [name]="icons.Upload" class="size-4 shrink-0" />
+            @if (selectedCsvFile()) {
+              Changer le fichier
+            } @else {
+              Choisir un fichier CSV
+            }
+          </span>
+        </app-ui-button>
         @if (selectedCsvFile()) {
-          <div class="flex flex-wrap gap-2">
-            <app-ui-button
-              type="button"
-              variant="primary"
-              size="small"
-              [disabled]="projectsStore.isImportingCsv()"
-              [loading]="projectsStore.isImportingCsv()"
-              (clicked)="importCsv()">
-              Importer
-            </app-ui-button>
-            <app-ui-button type="button" variant="outlined" size="small" (clicked)="clearCsvSelection()">
-              Annuler
-            </app-ui-button>
-          </div>
+          <span class="max-w-[300px] truncate text-sm font-medium text-slate-600" [title]="selectedCsvFile()?.name">
+            {{ selectedCsvFile()?.name }}
+          </span>
         }
       </div>
-    </div>
-
-    <div class="grid gap-3 rounded-2xl border border-slate-200/70 bg-white/85 p-4 sm:grid-cols-[250px_1fr] sm:p-5">
-      <app-ui-select
-        class="participations-phase-select"
-        id="phase-filter-select"
-        [options]="phaseFilterOptions()"
-        [ngModel]="selectedPhase() ?? ''"
-        (ngModelChange)="selectPhase($event || null)"
-        placeholder="Sélectionner une phase" />
-
-      <label
-        for="participants-search-input"
-        class="flex items-center gap-3 rounded-xl border border-slate-200 bg-stone-50 px-3.5 py-2.5 transition-all focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100">
-        <i-lucide [name]="icons.Search" class="size-4 shrink-0 text-slate-400" />
-        <input
-          type="text"
-          id="participants-search-input"
-          [ngModel]="searchQuery()"
-          (ngModelChange)="searchQuery.set($event)"
-          placeholder="Rechercher par nom, email ou venture"
-          class="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-          autocomplete="off" />
-      </label>
-    </div>
-
-    @if (projectsStore.isLoadingParticipations()) {
-      <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white/90">
-        <div class="flex items-center justify-between border-b border-slate-100 px-4 py-4 sm:px-6">
-          <div class="h-5 w-48 animate-pulse rounded bg-slate-200"></div>
-          <div class="h-8 w-20 animate-pulse rounded-full bg-slate-200"></div>
+      @if (selectedCsvFile()) {
+        <div class="flex flex-wrap gap-2">
+          <app-ui-button
+            type="button"
+            variant="primary"
+            size="small"
+            [disabled]="projectsStore.isImportingCsv()"
+            [loading]="projectsStore.isImportingCsv()"
+            (clicked)="importCsv()">
+            Importer
+          </app-ui-button>
+          <app-ui-button type="button" variant="outlined" size="small" (clicked)="clearCsvSelection()">
+            Annuler
+          </app-ui-button>
         </div>
+      }
+    </div>
+  </div>
+  <div class="grid gap-3 rounded-2xl border border-slate-200/70 bg-white/85 p-4 sm:grid-cols-[250px_1fr] sm:p-5">
+    <app-ui-select
+      class="participations-phase-select"
+      id="phase-filter-select"
+      [options]="phaseFilterOptions()"
+      [ngModel]="selectedPhase() ?? ''"
+      (ngModelChange)="selectPhase($event || null)"
+      placeholder="Sélectionner une phase" />
+    <label
+      for="participants-search-input"
+      class="flex items-center gap-3 rounded-xl border border-slate-200 bg-stone-50 px-3.5 py-2.5 transition-all focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100">
+      <i-lucide [name]="icons.Search" class="size-4 shrink-0 text-slate-400" />
+      <input
+        type="text"
+        id="participants-search-input"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        placeholder="Rechercher par nom, email ou venture"
+        class="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+        autocomplete="off" />
+    </label>
+  </div>
 
+  <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white/90">
+    <div
+      class="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <label class="ui-checkbox-wrapper flex items-center gap-2.5 cursor-pointer">
+        <div class="ui-checkbox-container relative">
+          <input
+            type="checkbox"
+            [checked]="isAllFilteredSelected()"
+            (change)="toggleSelectAll()"
+            class="ui-checkbox-input" />
+          @if (isAllFilteredSelected()) {
+            <div class="ui-checkbox-checkmark">
+              <i-lucide [name]="icons.Check" class="size-4 shrink-0" />
+            </div>
+          }
+        </div>
+        <span class="text-sm text-slate-600">
+          <span class="font-semibold tabular-nums text-slate-900">{{ selectedCount() }}</span>
+          sélectionné(e)s
+        </span>
+      </label>
+      <app-ui-badge [variant]="currentPhase() ? 'info' : 'default'" [label]="totalFiltered + ' participation(s)'" />
+    </div>
+    @if (projectsStore.isLoadingParticipations()) {
+      <div class="overflow-hidden border border-slate-200/70 bg-white/90">
         <div class="space-y-3 p-4 sm:p-6">
           @for (i of [1, 2, 3, 4, 5, 6]; track i) {
             <div class="flex items-center gap-3 rounded-xl border border-slate-100 bg-stone-50 p-3">
@@ -100,282 +111,241 @@
           }
         </div>
       </div>
-    }
-
-    @if (!projectsStore.isLoadingParticipations() && totalFiltered === 0) {
-      <div
-        class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-14 text-center">
-        <div
-          class="mb-3 flex size-14 items-center justify-center rounded-full border border-slate-200 bg-stone-100 text-slate-400">
-          <i-lucide [name]="icons.Users" class="size-7" />
-        </div>
-        <p class="text-sm font-semibold text-slate-800">Aucune participation</p>
-        <p class="mt-2 max-w-md text-xs leading-relaxed text-slate-500">
-          @if (currentPhase()) {
-            Aucune participation dans cette phase ou aucun résultat pour votre recherche.
-          } @else {
-            Ce projet n'a pas encore de participations.
-          }
-        </p>
-      </div>
-    }
-
-    @if (!projectsStore.isLoadingParticipations() && totalFiltered > 0) {
-      <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white/90">
-        <div
-          class="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <label class="ui-checkbox-wrapper flex items-center gap-2.5 cursor-pointer">
-            <div class="ui-checkbox-container relative">
-              <input
-                type="checkbox"
-                [checked]="isAllFilteredSelected()"
-                (change)="toggleSelectAll()"
-                class="ui-checkbox-input" />
-              @if (isAllFilteredSelected()) {
-                <div class="ui-checkbox-checkmark">
-                  <i-lucide [name]="icons.Check" class="size-4 shrink-0" />
-                </div>
-              }
+    } @else if (!projectsStore.isLoadingParticipations() && totalFiltered > 0) {
+      @if (selectedCount() > 0) {
+        <div class="participations-bulk-actions border-b border-slate-100 bg-stone-50/90 px-4 py-4 sm:px-6">
+          <div class="grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
+            <div class="min-w-0">
+              <label
+                for="operation-type-select"
+                class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Opération
+              </label>
+              <app-ui-select
+                class="block w-full"
+                id="operation-type-select"
+                [options]="operationTypeOptions"
+                [ngModel]="operationType()"
+                (ngModelChange)="operationType.set($event)"
+                placeholder="Sélectionner une opération" />
             </div>
-            <span class="text-sm text-slate-600">
-              <span class="font-semibold tabular-nums text-slate-900">{{ selectedCount() }}</span>
-              sélectionné(e)s
-            </span>
-          </label>
-
-          <app-ui-badge [variant]="currentPhase() ? 'info' : 'default'" [label]="totalFiltered + ' participation(s)'" />
-        </div>
-
-        @if (selectedCount() > 0) {
-          <div class="participations-bulk-actions border-b border-slate-100 bg-stone-50/90 px-4 py-4 sm:px-6">
-            <div class="grid gap-3 lg:grid-cols-[1fr_1fr_auto_auto] lg:items-end">
+            @if (operationType() === 'move') {
               <div class="min-w-0">
                 <label
-                  for="operation-type-select"
+                  for="move-phase-select"
                   class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Opération
+                  Destination
                 </label>
                 <app-ui-select
-                  class="block w-full"
-                  id="operation-type-select"
-                  [options]="operationTypeOptions"
-                  [ngModel]="operationType()"
-                  (ngModelChange)="operationType.set($event)"
-                  placeholder="Sélectionner une opération" />
+                  id="move-phase-select"
+                  [options]="movePhaseOptions()"
+                  [ngModel]="moveTargetPhase()"
+                  (ngModelChange)="moveTargetPhase.set($event)"
+                  placeholder="Choisir une phase" />
               </div>
-
-              @if (operationType() === 'move') {
-                <div class="min-w-0">
-                  <label
-                    for="move-phase-select"
-                    class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Destination
-                  </label>
-                  <app-ui-select
-                    id="move-phase-select"
-                    [options]="movePhaseOptions()"
-                    [ngModel]="moveTargetPhase()"
-                    (ngModelChange)="moveTargetPhase.set($event)"
-                    placeholder="Choisir une phase" />
-                </div>
-                <app-ui-button
-                  type="button"
-                  variant="primary"
-                  size="small"
-                  [loading]="projectsStore.isManagingParticipations()"
-                  [disabled]="!moveTargetPhase() || projectsStore.isManagingParticipations()"
-                  (clicked)="moveToPhase()"
-                  class="lg:self-end">
-                  <span class="flex items-center justify-center gap-2">
-                    @if (!projectsStore.isManagingParticipations()) {
-                      <i-lucide [name]="icons.CircleArrowRight" class="size-4" />
-                    }
-                    Déplacer
-                  </span>
-                </app-ui-button>
-              }
-
-              @if (operationType() === 'remove') {
-                <div class="min-w-0">
-                  <label
-                    for="remove-phase-select"
-                    class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Phase
-                  </label>
-                  <app-ui-select
-                    id="remove-phase-select"
-                    [options]="movePhaseOptions()"
-                    [ngModel]="removeTargetPhase()"
-                    (ngModelChange)="removeTargetPhase.set($event)"
-                    placeholder="Choisir une phase" />
-                </div>
-                <app-ui-button
-                  type="button"
-                  variant="outlined"
-                  size="small"
-                  [loading]="projectsStore.isManagingParticipations()"
-                  [disabled]="!removeTargetPhase() || projectsStore.isManagingParticipations()"
-                  (clicked)="removeFromPhase()"
-                  class="lg:self-end">
-                  <span class="flex items-center justify-center gap-2">
-                    @if (!projectsStore.isManagingParticipations()) {
-                      <i-lucide [name]="icons.Trash2" class="size-4" />
-                    }
-                    Retirer
-                  </span>
-                </app-ui-button>
-              }
-
               <app-ui-button
-                [size]="'small'"
-                [variant]="'danger'"
-                (clicked)="clearSelection()"
-                [outlined]="true"
+                type="button"
+                variant="primary"
+                size="small"
+                [loading]="projectsStore.isManagingParticipations()"
+                [disabled]="!moveTargetPhase() || projectsStore.isManagingParticipations()"
+                (clicked)="moveToPhase()"
                 class="lg:self-end">
-                <i-lucide [name]="icons.X" class="size-4" />
-                Annuler
+                <span class="flex items-center justify-center gap-2">
+                  @if (!projectsStore.isManagingParticipations()) {
+                    <i-lucide [name]="icons.CircleArrowRight" class="size-4" />
+                  }
+                  Déplacer
+                </span>
               </app-ui-button>
-            </div>
+            }
+            @if (operationType() === 'remove') {
+              <div class="min-w-0">
+                <label
+                  for="remove-phase-select"
+                  class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Phase
+                </label>
+                <app-ui-select
+                  id="remove-phase-select"
+                  [options]="movePhaseOptions()"
+                  [ngModel]="removeTargetPhase()"
+                  (ngModelChange)="removeTargetPhase.set($event)"
+                  placeholder="Choisir une phase" />
+              </div>
+              <app-ui-button
+                type="button"
+                variant="outlined"
+                size="small"
+                [loading]="projectsStore.isManagingParticipations()"
+                [disabled]="!removeTargetPhase() || projectsStore.isManagingParticipations()"
+                (clicked)="removeFromPhase()"
+                class="lg:self-end">
+                <span class="flex items-center justify-center gap-2">
+                  @if (!projectsStore.isManagingParticipations()) {
+                    <i-lucide [name]="icons.Trash2" class="size-4" />
+                  }
+                  Retirer
+                </span>
+              </app-ui-button>
+            }
+            <app-ui-button
+              [size]="'small'"
+              [variant]="'danger'"
+              (clicked)="clearSelection()"
+              [outlined]="true"
+              class="lg:self-end">
+              <i-lucide [name]="icons.X" class="size-4" />
+              Annuler
+            </app-ui-button>
           </div>
-        }
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full border-separate border-spacing-0">
-            <thead class="hidden md:table-header-group">
-              <tr class="bg-stone-100/70 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
-                <th class="px-4 py-3 sm:px-6" scope="col">
-                  <span class="sr-only">Sélection</span>
-                </th>
-                <th class="px-4 py-3" scope="col">Participant</th>
-                <th class="hidden px-4 py-3 lg:table-cell" scope="col">Email</th>
-                <th class="px-4 py-3" scope="col">Phases</th>
-                <th class="px-4 py-3 text-right sm:px-6" scope="col">
-                  <span class="sr-only">Actions</span>
-                </th>
+        </div>
+      }
+      <div class="overflow-x-auto">
+        <table class="min-w-full border-separate border-spacing-0">
+          <thead class="hidden md:table-header-group">
+            <tr class="bg-stone-100/70 text-left text-xs uppercase tracking-[0.12em] text-slate-500">
+              <th class="px-4 py-3 sm:px-6" scope="col">
+                <span class="sr-only">Sélection</span>
+              </th>
+              <th class="px-4 py-3" scope="col">Participant</th>
+              <th class="hidden px-4 py-3 lg:table-cell" scope="col">Email</th>
+              <th class="px-4 py-3" scope="col">Phases</th>
+              <th class="px-4 py-3 text-right sm:px-6" scope="col">
+                <span class="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="align-top">
+            @for (participation of participationsByPhase(); track participation.id) {
+              <tr
+                class="border-b border-slate-100 transition-colors hover:bg-stone-50"
+                [class.bg-teal-50/50]="isSelected(participation)">
+                <td class="w-12 px-4 py-3 sm:px-6">
+                  <div class="ui-checkbox-container relative">
+                    <input
+                      type="checkbox"
+                      [checked]="isSelected(participation)"
+                      (change)="toggleSelect(participation.id)"
+                      (click)="$event.stopPropagation()"
+                      class="ui-checkbox-input" />
+                    @if (isSelected(participation)) {
+                      <div class="ui-checkbox-checkmark">
+                        <i-lucide [name]="icons.Check" class="size-4 shrink-0" />
+                      </div>
+                    }
+                  </div>
+                </td>
+                <td class="px-4 py-3 md:align-middle">
+                  <div class="flex items-center gap-3">
+                    <app-ui-avatar
+                      [shape]="'circle'"
+                      [image]="participation.user | apiIMG: 'user'"
+                      [label]="participation.user.name"
+                      class="size-10 shrink-0" />
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-semibold text-slate-900">{{ participation.user.name }}</p>
+                      <p class="truncate text-xs text-slate-500 md:hidden">{{ participation.user.email || '—' }}</p>
+                      @if (participation.venture) {
+                        <p class="truncate text-xs text-slate-500 md:hidden">{{ participation.venture.name }}</p>
+                      }
+                    </div>
+                  </div>
+                </td>
+                <td class="hidden px-4 py-3 text-sm text-slate-600 lg:table-cell">
+                  @if (participation.user.email) {
+                    <span class="block truncate">{{ participation.user.email }}</span>
+                  } @else {
+                    <span class="text-slate-400">—</span>
+                  }
+                </td>
+                <td class="px-4 py-3">
+                  @if (participation.phases.length > 0) {
+                    <ul class="flex flex-wrap gap-1.5" role="list">
+                      @for (ph of participation.phases.slice(0, 2); track ph.id) {
+                        <li>
+                          <app-ui-badge [label]="ph.name" size="small" />
+                        </li>
+                      }
+                      @if (participation.phases.length > 2) {
+                        <li class="flex items-center text-xs font-semibold text-slate-500">
+                          +{{ participation.phases.length - 2 }}
+                        </li>
+                      }
+                    </ul>
+                  } @else {
+                    <span class="text-sm text-slate-400">—</span>
+                  }
+                </td>
+                <td class="px-4 py-3 text-right sm:px-6">
+                  <button
+                    type="button"
+                    [class.is-open]="isDetailExpanded(participation)"
+                    class="participation-detail-toggle inline-flex rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:border-slate-300 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                    [attr.aria-expanded]="isDetailExpanded(participation)"
+                    (click)="toggleDetail(participation)">
+                    <i-lucide [name]="icons.ChevronDown" class="size-5" />
+                  </button>
+                </td>
               </tr>
-            </thead>
-
-            <tbody class="align-top">
-              @for (participation of participationsByPhase(); track getParticipationKey(participation)) {
-                <tr
-                  class="border-b border-slate-100 transition-colors hover:bg-stone-50"
-                  [class.bg-teal-50/50]="isSelected(participation)">
-                  <td class="w-12 px-4 py-3 sm:px-6">
-                    <div class="ui-checkbox-container relative">
-                      <input
-                        type="checkbox"
-                        [checked]="isSelected(participation)"
-                        (change)="toggleSelect(getParticipationKey(participation))"
-                        (click)="$event.stopPropagation()"
-                        class="ui-checkbox-input" />
-                      @if (isSelected(participation)) {
-                        <div class="ui-checkbox-checkmark">
-                          <i-lucide [name]="icons.Check" class="size-4 shrink-0" />
+              <tr class="md:hidden">
+                <td class="p-0" colspan="6">
+                  <div class="participations-detail-accordion" [class.is-open]="isDetailExpanded(participation)">
+                    <div class="participations-detail-accordion__inner">
+                      @if (isDetailExpanded(participation)) {
+                        <app-participation-detail
+                          [participation]="participation"
+                          [participationId]="participation.id" />
+                      }
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <tr class="hidden md:table-row">
+                <td class="p-0" colspan="6">
+                  <div class="participations-detail-accordion" [class.is-open]="isDetailExpanded(participation)">
+                    <div class="participations-detail-accordion__inner">
+                      @if (isDetailExpanded(participation)) {
+                        <div class="border-t border-slate-100 bg-stone-50/90">
+                          <app-participation-detail
+                            [participation]="participation"
+                            [participationId]="participation.id" />
                         </div>
                       }
                     </div>
-                  </td>
-
-                  <td class="px-4 py-3 md:align-middle">
-                    <div class="flex items-center gap-3">
-                      <app-ui-avatar
-                        [shape]="'circle'"
-                        [image]="participation.user | apiIMG: 'user'"
-                        [label]="participation.user.name"
-                        class="size-10 shrink-0" />
-                      <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold text-slate-900">{{ participation.user.name }}</p>
-                        <p class="truncate text-xs text-slate-500 md:hidden">{{ participation.user.email || '—' }}</p>
-                        @if (participation.venture) {
-                          <p class="truncate text-xs text-slate-500 md:hidden">{{ participation.venture.name }}</p>
-                        }
-                      </div>
-                    </div>
-                  </td>
-
-                  <td class="hidden px-4 py-3 text-sm text-slate-600 lg:table-cell">
-                    @if (participation.user.email) {
-                      <span class="block truncate">{{ participation.user.email }}</span>
-                    } @else {
-                      <span class="text-slate-400">—</span>
-                    }
-                  </td>
-
-                  <td class="px-4 py-3">
-                    @if (participation.phases.length > 0) {
-                      <ul class="flex flex-wrap gap-1.5" role="list">
-                        @for (ph of participation.phases.slice(0, 2); track ph.id) {
-                          <li>
-                            <app-ui-badge [label]="ph.name" size="small" />
-                          </li>
-                        }
-                        @if (participation.phases.length > 2) {
-                          <li class="flex items-center text-xs font-semibold text-slate-500">
-                            +{{ participation.phases.length - 2 }}
-                          </li>
-                        }
-                      </ul>
-                    } @else {
-                      <span class="text-sm text-slate-400">—</span>
-                    }
-                  </td>
-
-                  <td class="px-4 py-3 text-right sm:px-6">
-                    <button
-                      type="button"
-                      [class.is-open]="isDetailExpanded(participation)"
-                      class="participation-detail-toggle inline-flex rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:border-slate-300 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-                      [attr.aria-expanded]="isDetailExpanded(participation)"
-                      (click)="toggleDetail(participation)">
-                      <i-lucide [name]="icons.ChevronDown" class="size-5" />
-                    </button>
-                  </td>
-                </tr>
-
-                <tr class="md:hidden">
-                  <td class="p-0" colspan="6">
-                    <div class="participations-detail-accordion" [class.is-open]="isDetailExpanded(participation)">
-                      <div class="participations-detail-accordion__inner">
-                        @if (isDetailExpanded(participation)) {
-                          <app-participation-detail
-                            [participation]="participation"
-                            [participationId]="getParticipationKey(participation)" />
-                        }
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-
-                <tr class="hidden md:table-row">
-                  <td class="p-0" colspan="6">
-                    <div class="participations-detail-accordion" [class.is-open]="isDetailExpanded(participation)">
-                      <div class="participations-detail-accordion__inner">
-                        @if (isDetailExpanded(participation)) {
-                          <div class="border-t border-slate-100 bg-stone-50/90">
-                            <app-participation-detail
-                              [participation]="participation"
-                              [participationId]="getParticipationKey(participation)" />
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        @if (totalCount > 20) {
-          <div class="flex justify-center border-t border-slate-100 bg-stone-50/80 px-4 py-4 sm:justify-end sm:px-6">
-            <app-ui-pagination
-              [currentPage]="currentPage()"
-              [totalItems]="totalCount"
-              [itemsPerPage]="20"
-              (pageChange)="onPageChange($event)" />
-          </div>
-        }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
+      @if (totalCount > 20) {
+        <div class="flex justify-center border-t border-slate-100 bg-stone-50/80 px-4 py-4 sm:justify-end sm:px-6">
+          <app-ui-pagination
+            [currentPage]="currentPage()"
+            [totalItems]="totalCount"
+            [itemsPerPage]="20"
+            (pageChange)="onPageChange($event)" />
+        </div>
+      }
     }
   </div>
-}
+  @if (!projectsStore.isLoadingParticipations() && totalFiltered === 0) {
+    <div
+      class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/80 px-4 py-14 text-center">
+      <div
+        class="mb-3 flex size-14 items-center justify-center rounded-full border border-slate-200 bg-stone-100 text-slate-400">
+        <i-lucide [name]="icons.Users" class="size-7" />
+      </div>
+      <p class="text-sm font-semibold text-slate-800">Aucune participation</p>
+      <p class="mt-2 max-w-md text-xs leading-relaxed text-slate-500">
+        @if (currentPhase()) {
+          Aucune participation dans cette phase ou aucun résultat pour votre recherche.
+        } @else {
+          Ce projet n'a pas encore de participations.
+        }
+      </p>
+    </div>
+  }
+</div>

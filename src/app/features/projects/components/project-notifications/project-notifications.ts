@@ -22,11 +22,7 @@ import { PhasesStore } from '@features/projects/store/phases.store';
 import { AuthStore } from '@core/auth/auth.store';
 import { environment } from '@env/environment';
 import { NotificationStatus } from '@features/projects/types/notification-status.enum';
-
-interface AttachmentPreview {
-  file: File;
-  id: string;
-}
+import { AttachmentPreview } from '@features/projects/types/attachment-preview.type';
 
 @Component({
   selector: 'app-project-notifications',

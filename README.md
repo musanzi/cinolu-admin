@@ -58,6 +58,9 @@ pnpm format
 - Stable `@for` tracking keys (`track item.id` / deterministic keys), avoid `track $index` for dynamic data.
 - Avoid `@HostBinding` / `@HostListener`; use `host` metadata in decorators.
 - Avoid `any`; prefer strict typing and `unknown` when necessary.
+- Prefer path aliases (`@core`, `@shared`, `@features`) over absolute `src/app/...` imports.
+- Prefer modern type naming in new/updated code (no `I` prefix for interfaces/types).
+- Keep list/search query behavior centralized via shared helpers when implementing paginated list pages.
 
 ## Project Structure
 

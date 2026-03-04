@@ -5,10 +5,10 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject } from '@angular/core';
 import { ToastrService } from '../../shared/services/toast/toastr.service';
 import { Router } from '@angular/router';
-import { IUser } from '@shared/models';
+import { User } from '@shared/models';
 
 interface IAuthStore {
-  user: IUser | null;
+  user: User | null;
   isCheckingAuth: boolean;
 }
 
@@ -16,9 +16,9 @@ export const AuthStore = signalStore(
   { providedIn: 'root' },
   withState<IAuthStore>({ user: null, isCheckingAuth: true }),
   withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService),
-    _router: inject(Router)
+    http: inject(HttpClient),
+    toast: inject(ToastrService),
+    router: inject(Router)
   })),
   withComputed(({ user }) => ({
     hasRights: computed(() => {
@@ -26,12 +26,12 @@ export const AuthStore = signalStore(
       return roles?.some((role) => role === 'admin' || role === 'staff');
     })
   })),
-  withMethods(({ _http, _toast, _router, ...store }) => ({
+  withMethods(({ http, toast, router, ...store }) => ({
     getProfile: rxMethod<void>(
       pipe(
         tap(() => patchState(store, { isCheckingAuth: true })),
         exhaustMap(() =>
-          _http.get<{ data: IUser }>('auth/me').pipe(
+          http.get<{ data: User }>('auth/me').pipe(
             tap(({ data }) => {
               patchState(store, { user: data, isCheckingAuth: false });
             }),
@@ -46,21 +46,21 @@ export const AuthStore = signalStore(
     signOut: rxMethod<void>(
       pipe(
         exhaustMap(() =>
-          _http.post<void>('auth/signout', {}).pipe(
+          http.post<void>('auth/signout', {}).pipe(
             tap(() => {
-              _router.navigate(['/']);
+              router.navigate(['/']);
               patchState(store, { user: null });
-              _toast.showSuccess('Déconnexion réussie');
+              toast.showSuccess('Déconnexion réussie');
             }),
             catchError(() => {
-              _toast.showError('Erreur lors de la déconnexion');
+              toast.showError('Erreur lors de la déconnexion');
               return of(null);
             })
           )
         )
       )
     ),
-    setUser: (user: IUser | null) => {
+    setUser: (user: User | null) => {
       patchState(store, { user });
     },
     setCheckingAuth: (isCheckingAuth: boolean) => {

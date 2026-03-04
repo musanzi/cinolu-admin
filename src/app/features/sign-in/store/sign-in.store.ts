@@ -4,7 +4,7 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { catchError, of, pipe, switchMap, tap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from '@shared/services/toast/toastr.service';
-import { IUser } from '@shared/models';
+import { User } from '@shared/models';
 import { AuthStore } from '@core/auth/auth.store';
 import { SignInDto } from '../dto/sign-in.dto';
 import { Router } from '@angular/router';
@@ -24,27 +24,27 @@ export const SignInStore = signalStore(
     isLoading: false
   }),
   withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService),
-    _router: inject(Router),
-    _authStore: inject(AuthStore)
+    http: inject(HttpClient),
+    toast: inject(ToastrService),
+    router: inject(Router),
+    authStore: inject(AuthStore)
   })),
-  withMethods(({ _http, _toast, _authStore, _router, ...store }) => ({
+  withMethods(({ http, toast, authStore, router, ...store }) => ({
     signIn: rxMethod<ISignInParams>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ payload, redirectPath, onSuccess }) => {
-          return _http.post<{ data: IUser }>('auth/signin', payload).pipe(
+          return http.post<{ data: User }>('auth/signin', payload).pipe(
             tap(({ data }) => {
               patchState(store, { isLoading: false });
-              _authStore.setUser(data);
-              _toast.showSuccess('Connexion réussie');
-              _router.navigate([redirectPath]);
+              authStore.setUser(data);
+              toast.showSuccess('Connexion réussie');
+              router.navigate([redirectPath]);
               onSuccess();
             }),
             catchError((err) => {
               patchState(store, { isLoading: false });
-              _toast.showError(err.error['message'] || 'Erreur de connexion');
+              toast.showError(err.error['message'] || 'Erreur de connexion');
               return of(null);
             })
           );

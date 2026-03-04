@@ -95,7 +95,7 @@ export class UpdateMentor implements OnInit {
       markAllAsTouched(this.form);
       return;
     }
-    this.store.patch({ id: this.#mentorId, dto: this.#buildPayload() });
+    this.store.update({ id: this.#mentorId, dto: this.#buildPayload() });
   }
 
   onCreateExpertise(name: string): void {
