@@ -143,6 +143,25 @@ export const UsersStore = signalStore(
         )
       )
     ),
+    clear: rxMethod<{ onSuccess: () => void }>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap(({ onSuccess }) =>
+          http.delete<void>('users/clear').pipe(
+            tap(() => {
+              patchState(store, { isLoading: false });
+              toast.showSuccess('Utilisateurs invalides supprimés avec succès');
+              onSuccess();
+            }),
+            catchError(() => {
+              patchState(store, { isLoading: false });
+              toast.showError('Échec de la suppression des utilisateurs invalides');
+              return of(null);
+            })
+          )
+        )
+      )
+    ),
     download: rxMethod<FilterUsersDto>(
       pipe(
         tap(() => patchState(store, { isDownloading: true })),

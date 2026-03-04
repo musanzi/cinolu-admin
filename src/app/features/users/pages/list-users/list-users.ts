@@ -95,6 +95,20 @@ export class ListUsers {
     });
   }
 
+  clear(): void {
+    this.#confirmationService.confirm({
+      header: 'Confirmation',
+      message: 'Êtes-vous sûr de vouloir supprimer les utilisateurs invalides ?',
+      acceptLabel: 'Supprimer',
+      rejectLabel: 'Annuler',
+      accept: () => {
+        this.store.clear({
+          onSuccess: () => this.store.loadAll(this.queryParams())
+        });
+      }
+    });
+  }
+
   triggerCsvFileSelect(): void {
     this.csvFileInput()?.nativeElement?.click();
   }

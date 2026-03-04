@@ -51,6 +51,10 @@
         }
         Télécharger CSV
       </app-ui-button>
+      <app-ui-button variant="danger" [outlined]="true" size="small" [disabled]="userCount === 0" (clicked)="clear()">
+        <i-lucide [name]="icons.Trash" class="size-4" />
+        Supprimer invalides
+      </app-ui-button>
       <a [routerLink]="'/users/add'" class="ui-button ui-button-small ui-button-primary"> Nouvel utilisateur </a>
     </div>
   </div>
