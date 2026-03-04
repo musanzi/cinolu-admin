@@ -27,7 +27,6 @@ import { IProject, IProjectParticipation } from '@shared/models';
 import { PhasesStore } from '@features/projects/store/phases.store';
 import { ProjectsStore } from '@features/projects/store/projects.store';
 import { ParticipationDetail } from './participation-detail/participation-detail';
-import { getParticipationKey } from '@features/projects/helpers';
 import { FilterParticipationsDto } from '@features/projects/dto/phases/filter-participations.dto';
 
 @Component({
@@ -55,7 +54,7 @@ export class Participations {
   searchQuery = signal('');
   currentPage = signal(1);
   selectedIds = signal<Set<string>>(new Set());
-  expandedParticipationKey = signal<string | null>(null);
+  activeParticipationId = signal<string | null>(null);
   operationType = signal('move');
   moveTargetPhase = signal<string | null>(null);
   removeTargetPhase = signal<string | null>(null);
@@ -70,19 +69,25 @@ export class Participations {
     this.phasesStore.sortedPhases().map((phase) => ({ label: phase.name, value: phase.id }))
   );
   selectedCount = computed(() => this.selectedIds().size);
-  projectId = computed(() => this.project()?.id ?? null);
-  projectSlug = computed(() => this.project()?.slug ?? null);
+  allVisibleSelected = computed(() => {
+    const participations = this.rawParticipations();
+    if (participations.length === 0) return false;
+    const selectedIds = this.selectedIds();
+    return participations.every((participation) => selectedIds.has(participation.id));
+  });
+  hasSomeVisibleSelected = computed(() => {
+    const participations = this.participationsByPhase();
+    if (participations.length === 0) return false;
+    const selectedIds = this.selectedIds();
+    const selectedVisibleCount = participations.filter((participation) => selectedIds.has(participation.id)).length;
+    return selectedVisibleCount > 0 && selectedVisibleCount < participations.length;
+  });
   requestDto = computed<FilterParticipationsDto>(() => ({
     page: this.currentPage(),
-    q: this.searchQuery()
+    q: this.searchQuery(),
+    phaseId: this.selectedPhase()
   }));
-  isAllFilteredSelected = computed(() => {
-    const ids = this.selectedIds();
-    const keys = this.filteredParticipationKeys();
-    return keys.length > 0 && keys.every((key) => ids.has(key));
-  });
   rawParticipations = computed(() => this.projectsStore.participations()[0]);
-  totalServerParticipations = computed(() => this.projectsStore.participations()[1]);
   participationsByPhase = computed(() => {
     const list = this.rawParticipations();
     const phaseId = this.selectedPhase();
@@ -97,7 +102,7 @@ export class Participations {
 
   phaseFilterOptions = computed(() => {
     const phases = this.phasesStore.sortedPhases();
-    const options = [{ label: `Tous (${this.totalServerParticipations()})`, value: '' }];
+    const options = [{ label: `Tous (${this.projectsStore.participations()[1]})`, value: '' }];
     for (const phase of phases) {
       options.push({ label: `${phase.name} (${phase?.participationsCount})`, value: phase.id });
     }
@@ -108,12 +113,12 @@ export class Participations {
     this.setupEffects();
   }
 
-  onPageChange(page: number): void {
-    this.currentPage.set(page);
+  onActiveParticipationChange(id: string): void {
+    this.activeParticipationId.update((v) => (v === id ? null : id));
   }
 
-  selectPhase(phaseId: string | null): void {
-    this.selectedPhase.set(phaseId);
+  onPageChange(page: number): void {
+    this.currentPage.set(page);
   }
 
   toggleSelect(id: string): void {
@@ -125,17 +130,30 @@ export class Participations {
     });
   }
 
-  toggleSelectAll(): void {
-    const filteredIds = this.filteredParticipationKeys();
+  toggleSelectAllVisible(checked: boolean): void {
+    if (!checked) {
+      this.selectedIds.update((current) => {
+        const next = new Set(current);
+        for (const participation of this.participationsByPhase()) {
+          next.delete(participation.id);
+        }
+        return next;
+      });
+      return;
+    }
+
     this.selectedIds.update((current) => {
       const next = new Set(current);
-      if (this.isAllFilteredSelected()) {
-        filteredIds.forEach((id) => next.delete(id));
-      } else {
-        filteredIds.forEach((id) => next.add(id));
+      for (const participation of this.participationsByPhase()) {
+        next.add(participation.id);
       }
       return next;
     });
+  }
+
+  onSelectAllChange(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.toggleSelectAllVisible(checked);
   }
 
   clearSelection(): void {
@@ -143,24 +161,31 @@ export class Participations {
   }
 
   isSelected(p: IProjectParticipation): boolean {
-    return this.selectedIds().has(getParticipationKey(p));
-  }
-
-  toggleDetail(p: IProjectParticipation): void {
-    const key = getParticipationKey(p);
-    this.expandedParticipationKey.update((current) => (current === key ? null : key));
-  }
-
-  isDetailExpanded(p: IProjectParticipation): boolean {
-    return this.expandedParticipationKey() === getParticipationKey(p);
+    return this.selectedIds().has(p.id);
   }
 
   moveToPhase(): void {
-    this.executePhaseOperation(this.moveTargetPhase(), 'move');
+    const phaseId = this.selectedPhase();
+    if (!phaseId) return;
+    this.projectsStore.moveParticipations({
+      dto: { ids: [...this.selectedIds()], phaseId },
+      onSuccess: () => {
+        this.refreshProjectData();
+        this.clearSelection();
+      }
+    });
   }
 
   removeFromPhase(): void {
-    this.executePhaseOperation(this.removeTargetPhase(), 'remove');
+    const phaseId = this.selectedPhase();
+    if (!phaseId) return;
+    this.projectsStore.removeParticipations({
+      dto: { ids: [...this.selectedIds()], phaseId },
+      onSuccess: () => {
+        this.refreshProjectData();
+        this.clearSelection();
+      }
+    });
   }
 
   triggerCsvFileSelect(): void {
@@ -179,11 +204,9 @@ export class Participations {
   }
 
   importCsv(): void {
-    const projectId = this.projectId();
-    const projectSlug = this.projectSlug();
+    const projectId = this.project()?.id;
     const file = this.selectedCsvFile();
-    if (!projectId || !projectSlug || !file) return;
-
+    if (!projectId || !file) return;
     this.projectsStore.importParticipantsCsv({
       projectId,
       file,
@@ -196,57 +219,25 @@ export class Participations {
 
   private setupEffects(): void {
     effect(() => {
-      const projectId = this.projectId();
+      const projectId = this.project()?.id;
       if (projectId) this.phasesStore.loadAll(projectId);
     });
-
     effect(() => {
       this.searchQuery();
       this.selectedPhase();
       this.currentPage.set(1);
     });
-
     effect(() => {
-      const projectId = this.projectId();
+      const projectId = this.project()?.id;
       if (!projectId) return;
       this.projectsStore.loadParticipations({ projectId, dto: this.requestDto() });
     });
   }
 
-  private executePhaseOperation(phaseId: string | null, operation: string): void {
-    const ids = this.getParticipationsIds();
-    const projectSlug = this.projectSlug();
-    if (!phaseId || ids.length === 0 || !projectSlug) return;
-
-    const handler =
-      operation === 'move' ? this.projectsStore.moveParticipations : this.projectsStore.removeParticipations;
-    const targetSignal = operation === 'move' ? this.moveTargetPhase : this.removeTargetPhase;
-
-    handler.call(this.projectsStore, {
-      dto: { ids, phaseId },
-      onSuccess: () => {
-        this.refreshProjectData();
-        this.clearSelection();
-        targetSignal.set(null);
-      }
-    });
-  }
-
   private refreshProjectData(): void {
-    const projectSlug = this.projectSlug();
-    const projectId = this.projectId();
+    const projectSlug = this.project()?.slug;
+    const projectId = this.project()?.id;
     if (projectSlug) this.projectsStore.loadOne(projectSlug);
     if (projectId) this.projectsStore.loadParticipations({ projectId, dto: this.requestDto() });
-  }
-
-  private filteredParticipationKeys(): string[] {
-    return this.participationsByPhase().map(getParticipationKey);
-  }
-
-  private getParticipationsIds(): string[] {
-    const selectedKeys = this.selectedIds();
-    return this.rawParticipations()
-      .filter((p) => selectedKeys.has(getParticipationKey(p)))
-      .map((p) => p.id);
   }
 }

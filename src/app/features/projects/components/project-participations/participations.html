@@ -1,5 +1,5 @@
 @let totalFiltered = participationsByPhase().length;
-@let totalCount = totalServerParticipations();
+@let totalCount = this.projectsStore.participations()[1];
 <div class="relative flex flex-col gap-6 lg:gap-7">
   <div class="rounded-2xl border border-slate-200/70 bg-white/85 p-4 sm:p-5">
     <input
@@ -57,24 +57,22 @@
       class="participations-phase-select"
       id="phase-filter-select"
       [options]="phaseFilterOptions()"
-      [ngModel]="selectedPhase() ?? ''"
-      (ngModelChange)="selectPhase($event || null)"
+      [(ngModel)]="selectedPhase"
       placeholder="Sélectionner une phase" />
-    <label
-      for="participants-search-input"
-      class="flex items-center gap-3 rounded-xl border border-slate-200 bg-stone-50 px-3.5 py-2.5 transition-all focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-100">
-      <i-lucide [name]="icons.Search" class="size-4 shrink-0 text-slate-400" />
+    <div class="search-input-group">
+      <div class="search-input-icon">
+        <i-lucide [name]="icons.Search" class="search-input-icon-svg" />
+      </div>
+      <label for="participants-search-input" class="sr-only"> Rechercher </label>
       <input
         type="text"
         id="participants-search-input"
-        [ngModel]="searchQuery()"
-        (ngModelChange)="searchQuery.set($event)"
+        [(ngModel)]="searchQuery"
         placeholder="Rechercher par nom, email ou venture"
-        class="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+        class="search-input"
         autocomplete="off" />
-    </label>
+    </div>
   </div>
-
   <div class="overflow-hidden rounded-2xl border border-slate-200/70 bg-white/90">
     <div
       class="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -82,14 +80,12 @@
         <div class="ui-checkbox-container relative">
           <input
             type="checkbox"
-            [checked]="isAllFilteredSelected()"
-            (change)="toggleSelectAll()"
-            class="ui-checkbox-input" />
-          @if (isAllFilteredSelected()) {
-            <div class="ui-checkbox-checkmark">
-              <i-lucide [name]="icons.Check" class="size-4 shrink-0" />
-            </div>
-          }
+            class="ui-checkbox-input"
+            [checked]="allVisibleSelected()"
+            (change)="onSelectAllChange($event)" />
+          <div class="ui-checkbox-checkmark">
+            <i-lucide [name]="icons.Check" class="size-4 shrink-0" />
+          </div>
         </div>
         <span class="text-sm text-slate-600">
           <span class="font-semibold tabular-nums text-slate-900">{{ selectedCount() }}</span>
@@ -280,32 +276,20 @@
                 <td class="px-4 py-3 text-right sm:px-6">
                   <button
                     type="button"
-                    [class.is-open]="isDetailExpanded(participation)"
+                    [class.is-open]="activeParticipationId() === participation.id"
                     class="participation-detail-toggle inline-flex rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:border-slate-300 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-                    [attr.aria-expanded]="isDetailExpanded(participation)"
-                    (click)="toggleDetail(participation)">
+                    (click)="onActiveParticipationChange(participation.id)">
                     <i-lucide [name]="icons.ChevronDown" class="size-5" />
                   </button>
                 </td>
               </tr>
-              <tr class="md:hidden">
+              <tr class="table-row">
                 <td class="p-0" colspan="6">
-                  <div class="participations-detail-accordion" [class.is-open]="isDetailExpanded(participation)">
+                  <div
+                    class="participations-detail-accordion"
+                    [class.is-open]="activeParticipationId() === participation.id">
                     <div class="participations-detail-accordion__inner">
-                      @if (isDetailExpanded(participation)) {
-                        <app-participation-detail
-                          [participation]="participation"
-                          [participationId]="participation.id" />
-                      }
-                    </div>
-                  </div>
-                </td>
-              </tr>
-              <tr class="hidden md:table-row">
-                <td class="p-0" colspan="6">
-                  <div class="participations-detail-accordion" [class.is-open]="isDetailExpanded(participation)">
-                    <div class="participations-detail-accordion__inner">
-                      @if (isDetailExpanded(participation)) {
+                      @if (activeParticipationId() === participation.id) {
                         <div class="border-t border-slate-100 bg-stone-50/90">
                           <app-participation-detail
                             [participation]="participation"
