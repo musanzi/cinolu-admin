@@ -96,7 +96,7 @@
           sélectionné(e)s
         </span>
       </label>
-      <app-ui-badge [variant]="currentPhase() ? 'info' : 'default'" [label]="totalFiltered + ' participation(s)'" />
+      <app-ui-badge [label]="currentPhase()?.participationsCount + ' participation(s)'" />
     </div>
     @if (projectsStore.isLoadingParticipations()) {
       <div class="overflow-hidden border border-slate-200/70 bg-white/90">
