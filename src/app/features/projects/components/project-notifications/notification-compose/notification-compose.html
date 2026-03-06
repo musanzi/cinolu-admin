@@ -116,7 +116,7 @@
             [size]="'small'"
             [disabled]="form.invalid || state().isSaving"
             [loading]="actionLoading() === 'save'"
-            (clicked)="onSaveDraft()">
+            (clicked)="submitForm('save')">
             Enregistrer
           </app-ui-button>
           @if (state().activeNotification) {
@@ -126,7 +126,7 @@
               [size]="'small'"
               [disabled]="form.invalid || state().isSaving"
               [loading]="actionLoading() === 'send'"
-              (clicked)="onSendNotification()">
+              (clicked)="submitForm('send')">
               @if (actionLoading() !== 'send') {
                 <i-lucide [name]="icons.Send" class="size-4" />
               }

@@ -61,17 +61,8 @@ export class NotificationCompose {
     });
   }
 
-  onSaveDraft(): void {
-    if (this.form.invalid || this.state().isSaving) return;
-    this.#submitForm('save');
-  }
-
-  onSendNotification(): void {
-    if (this.form.invalid || this.state().isSaving) return;
-    this.#submitForm('send');
-  }
-
-  #submitForm(action: 'save' | 'send'): void {
+  submitForm(action: 'save' | 'send'): void {
+    if (!this.form.invalid) return;
     this.actionLoading.set(action);
     const emiter = action === 'save' ? this.saveDraft : this.sendNotification;
     emiter.emit({
