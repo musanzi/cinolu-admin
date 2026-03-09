@@ -52,25 +52,20 @@ export const NotificationsStore = signalStore(
         activeNotification: notification
       });
     };
-
     const uploadAttachments = (notification: INotification, attachments: File[]) => {
       if (!attachments.length) {
         return of(notification);
       }
-
       const formData = new FormData();
       attachments.forEach((file) => formData.append('attachments', file));
-
       return http
         .post<{ data: INotificationAttachment[] }>(`notifications/${notification.id}/attachments`, formData)
         .pipe(map(({ data }) => ({ ...notification, attachments: data })));
     };
-
     const fail = (message: string) => {
       patchState(store, { isSaving: false, error: message });
       return of(null);
     };
-
     return {
       loadAll: rxMethod<{ projectId: string; filters: FilterProjectNotificationsDto }>(
         pipe(

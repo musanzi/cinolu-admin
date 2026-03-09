@@ -31,15 +31,6 @@ export const ParticipationsStore = signalStore(
       patchState(store, { isSaving: false, isLoading: false, ...patch });
       return of(null);
     };
-    const updateParticipation = (
-      participationId: string,
-      updater: (item: IProjectParticipation) => IProjectParticipation
-    ): void => {
-      const [list, total] = store.participations();
-      patchState(store, {
-        participations: [list.map((item) => (item.id === participationId ? updater(item) : item)), total]
-      });
-    };
     return {
       loadAll: rxMethod<{ projectId: string; filters: FilterParticipationsDto }>(
         pipe(
@@ -84,42 +75,6 @@ export const ParticipationsStore = signalStore(
                 onSuccess?.();
               }),
               catchError(() => fail("Une erreur s'est produite lors du retrait des participants"))
-            )
-          )
-        )
-      ),
-      upvote: rxMethod<string>(
-        pipe(
-          tap(() => patchState(store, { isSaving: true })),
-          switchMap((participationId) =>
-            http.post<void>(`projects/participations/${participationId}/upvote`, {}).pipe(
-              tap(() => {
-                updateParticipation(participationId, (item) => ({
-                  ...item,
-                  isUpvoted: true,
-                  upvotesCount: (item.upvotesCount ?? 0) + 1
-                }));
-                patchState(store, { isSaving: false });
-              }),
-              catchError(() => fail("Une erreur s'est produite lors de l'ajout du vote"))
-            )
-          )
-        )
-      ),
-      removeUpvote: rxMethod<string>(
-        pipe(
-          tap(() => patchState(store, { isSaving: true })),
-          switchMap((participationId) =>
-            http.delete<void>(`projects/participations/${participationId}/upvote`).pipe(
-              tap(() => {
-                updateParticipation(participationId, (item) => ({
-                  ...item,
-                  isUpvoted: false,
-                  upvotesCount: Math.max(0, (item.upvotesCount ?? 0) - 1)
-                }));
-                patchState(store, { isSaving: false });
-              }),
-              catchError(() => fail("Une erreur s'est produite lors du retrait du vote"))
             )
           )
         )

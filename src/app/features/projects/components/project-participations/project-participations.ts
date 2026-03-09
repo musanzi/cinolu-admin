@@ -162,14 +162,6 @@ export class ProjectParticipations {
     this.currentPage.set(page);
   }
 
-  onToggleUpvote(participation: IProjectParticipation): void {
-    if (participation.isUpvoted) {
-      this.participationsStore.removeUpvote(participation.id);
-      return;
-    }
-    this.participationsStore.upvote(participation.id);
-  }
-
   onImportCsvSelection(input: HTMLInputElement): void {
     const file = input.files?.[0] ?? null;
     if (!file) return;
