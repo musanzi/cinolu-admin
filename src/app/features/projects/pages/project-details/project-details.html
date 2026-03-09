@@ -45,12 +45,8 @@
   @if (activeTab() === 'phases' && project) {
     <app-phases [projectId]="project.id" />
   }
-  @if (activeTab() === 'participations' && project) {
-    <app-participations [project]="project" />
-  }
-  @if (activeTab() === 'notifications' && project) {
-    <app-project-notifications [project]="project" />
-  }
+  @if (activeTab() === 'participations' && project) {}
+  @if (activeTab() === 'notifications' && project) {}
   @if (activeTab() === 'edit' && project) {
     <app-project-update
       [project]="project"

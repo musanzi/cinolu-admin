@@ -8,14 +8,7 @@ import { ProjectDetailsSkeleton } from '../../ui/project-details-skeleton/projec
 import { SubprogramsStore } from '@features/programs/store/subprograms.store';
 import { CategoriesStore } from '@features/projects/store/project-categories.store';
 import { UsersStore } from '@features/users/store/users.store';
-import {
-  ProjectSheet,
-  ProjectGallery,
-  ProjectUpdate,
-  Phases,
-  ProjectNotifications
-} from '@features/projects/components';
-import { Participations } from '@features/projects/components/project-participations/participations';
+import { ProjectSheet, ProjectGallery, ProjectUpdate, Phases } from '@features/projects/components';
 
 @Component({
   selector: 'app-project-details',
@@ -28,8 +21,6 @@ import { Participations } from '@features/projects/components/project-participat
     ProjectGallery,
     ProjectUpdate,
     Phases,
-    Participations,
-    ProjectNotifications,
     ProjectDetailsSkeleton,
     LucideAngularModule,
     UiButton
