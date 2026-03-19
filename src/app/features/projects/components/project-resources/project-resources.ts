@@ -63,7 +63,7 @@ export class ProjectResources {
   resourceForm = this.#fb.group({
     title: ['', [Validators.required, Validators.minLength(2)]],
     description: ['', Validators.required],
-    category: [ResourceCategory.OTHER as ResourceCategory, Validators.required],
+    category: [ResourceCategory.OTHER, Validators.required],
     scope: ['project', Validators.required],
     phase_id: ['']
   });
@@ -148,14 +148,9 @@ export class ProjectResources {
     if (this.resourceForm.invalid) return;
     const resourceId = this.editingResourceId();
     if (resourceId) {
-      const payload: UpdateResourceDto = {
-        title: this.resourceForm.value.title ?? '',
-        description: this.resourceForm.value.description ?? '',
-        category: this.resourceForm.value.category ?? ResourceCategory.OTHER
-      };
       this.resourcesStore.update({
         id: resourceId,
-        dto: payload,
+        dto: this.resourceForm.value as UpdateResourceDto,
         onSuccess: () => this.onCancelForm()
       });
       return;
@@ -164,13 +159,11 @@ export class ProjectResources {
     if (!selectedFile) return;
     const scope = this.resourceForm.value.scope ?? 'project';
     const phaseId = this.resourceForm.value.phase_id ?? '';
-    const payload: CreateResourceDto = {
-      title: this.resourceForm.value.title ?? '',
-      description: this.resourceForm.value.description ?? '',
-      category: this.resourceForm.value.category ?? ResourceCategory.OTHER,
-      project_id: scope === 'project' ? this.projectId() : undefined,
-      phase_id: scope === 'phase' ? phaseId : undefined
-    };
+    const payload = {
+      ...this.resourceForm.value,
+      project_id: this.projectId(),
+      phase_id: phaseId
+    } as CreateResourceDto;
     if (scope === 'phase' && !phaseId) {
       this.resourceForm.get('phase_id')?.markAsTouched();
       this.resourceForm.get('phase_id')?.setErrors({ required: true });
@@ -193,10 +186,6 @@ export class ProjectResources {
       rejectLabel: 'Annuler',
       accept: () => this.resourcesStore.delete(resource.id)
     });
-  }
-
-  onTogglePublish(resource: IResource): void {
-    this.resourcesStore.publish(resource.id);
   }
 
   onPageChange(page: number): void {
