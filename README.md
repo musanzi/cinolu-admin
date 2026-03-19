@@ -1,87 +1,59 @@
-# Cinolu Admin (Angular)
+# Cinolu Admin
 
-Admin application for the Cinolu platform, built with Angular (standalone APIs), Signals, Tailwind CSS, and SSR support.
+Administrative web application for managing the Cinolu platform.
 
-## Requirements
+Built with **Angular 21**, **TypeScript**, **Signals**, **Tailwind CSS**, and **SSR**, this app powers Cinolu’s internal back-office for managing programs, projects, events, blog content, users, mentors, ventures, and account settings.
 
-- Node.js LTS
-- `pnpm` (project uses `pnpm-lock.yaml`)
+## Stack
 
-## Setup
+- Angular 21
+- TypeScript
+- Angular Signals / NgRx Signals
+- Tailwind CSS v4
+- Angular SSR + Express
+- ESLint + Prettier
+- pnpm
+
+## Features
+
+- Authenticated admin area
+- Dashboard and account management
+- Management for programs, projects, events, blog posts, users, mentors, and ventures
+- Feature-first architecture with shared UI and utilities
+- Server-side rendering support
+
+## Getting Started
 
 ```bash
 pnpm install
-```
-
-## Scripts
-
-- `pnpm start` - run dev server (`ng serve`)
-- `pnpm build` - production build
-- `pnpm watch` - development watch build
-- `pnpm test` - run tests
-- `pnpm lint` - run ESLint
-- `pnpm format` - run Prettier on `src/**/*.{html,ts}`
-- `pnpm ssr` - run compiled server bundle (`dist/admin/server/server.mjs`)
-
-## Development Workflow
-
-1. Start local dev:
-
-```bash
 pnpm start
 ```
 
-2. Before pushing changes:
+Default dev port: **4000**
+
+## Scripts
 
 ```bash
-pnpm lint
-pnpm exec tsc -p tsconfig.app.json --noEmit
+pnpm start    # run dev server
+pnpm build    # production build
+pnpm watch    # watch mode
+pnpm test     # run tests
+pnpm lint     # lint codebase
+pnpm format   # format source files
+pnpm ssr      # run built SSR server
 ```
-
-3. Optional formatting:
-
-```bash
-pnpm format
-```
-
-## Architecture Notes
-
-- Standalone components and route-based lazy loading.
-- Signal-first local state (`signal`, `computed`, `effect`).
-- Feature-first folder organization under `src/app/features`.
-- Shared reusable UI under `src/app/shared/ui`.
-
-## Code Standards Used in This Repo
-
-- `ChangeDetectionStrategy.OnPush` on all components.
-- Native Angular control flow in templates (`@if`, `@for`, `@switch`).
-- Stable `@for` tracking keys (`track item.id` / deterministic keys), avoid `track $index` for dynamic data.
-- Avoid `@HostBinding` / `@HostListener`; use `host` metadata in decorators.
-- Avoid `any`; prefer strict typing and `unknown` when necessary.
-- Prefer path aliases (`@core`, `@shared`, `@features`) over absolute `src/app/...` imports.
-- Prefer modern type naming in new/updated code (no `I` prefix for interfaces/types).
-- Keep list/search query behavior centralized via shared helpers when implementing paginated list pages.
 
 ## Project Structure
 
-- `src/app/core` - app-level concerns (auth, guards, interceptors, providers)
-- `src/app/features` - domain features (users, events, programs, projects, etc.)
-- `src/app/layout` - admin and empty layouts
-- `src/app/shared` - shared UI, models, pipes, helpers, services
-- `src/environments` - environment configs
-- `src/server.ts` - Express SSR entry
-- `public/` - static assets
-
-## SSR
-
-Build first, then run:
-
-```bash
-pnpm build
-pnpm ssr
+```text
+src/
+├── app/core      # app-wide concerns
+├── app/features  # domain features
+├── app/layout    # layouts and shell
+├── app/shared    # reusable UI and helpers
+└── environments  # environment configs
 ```
 
 ## License
 
-This project is licensed under the **MIT License**.
-See the [LICENSE](./LICENSE) file for details.
+MIT — see [LICENSE](./LICENSE).
