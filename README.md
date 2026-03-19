@@ -83,4 +83,5 @@ pnpm ssr
 
 ## License
 
-See repository license policy.
+This project is licensed under the **MIT License**.
+See the [LICENSE](./LICENSE) file for details.
