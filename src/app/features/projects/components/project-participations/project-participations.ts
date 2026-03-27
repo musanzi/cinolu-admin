@@ -1,104 +1,65 @@
-import { DatePipe } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  DestroyRef,
-  effect,
-  ElementRef,
-  inject,
-  input,
-  signal,
-  viewChild
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import {
-  LucideAngularModule,
-  ArrowLeft,
-  ArrowRight,
-  CheckCheck,
-  Download,
-  RefreshCcw,
-  Search,
-  Upload,
-  X
-} from 'lucide-angular';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
-import { ApiImgPipe } from '@shared/pipes';
-import { IPhase, IProject, IProjectParticipation, ParticipationStatus } from '@shared/models';
+import { FormBuilder, Validators } from '@angular/forms';
+import { distinctUntilChanged } from 'rxjs';
+import { IPhase, IProject, IProjectParticipation } from '@shared/models';
 import { ToastrService } from '@shared/services/toast/toastr.service';
-import { UiTableSkeleton } from '@shared/ui/table-skeleton/table-skeleton';
-import { SelectOption, UiAvatar, UiBadge, UiButton, UiCheckbox, UiPagination, UiSelect, UiTextarea } from '@shared/ui';
+import { SelectOption } from '@shared/ui';
+import { toPageQueryValue } from '@shared/helpers';
+import { FilterParticipationsDto } from '@features/projects/dto/phases/filter-participations.dto';
 import { ParticipationsStore } from '@features/projects/store/participations.store';
 import { ProjectsStore } from '@features/projects/store/projects.store';
-import { toPageQueryValue, toSearchQueryValue } from '@shared/helpers';
-import { FilterParticipationsDto } from '@features/projects/dto/phases/filter-participations.dto';
+import { ProjectParticipationDetails } from './project-participation-details/project-participation-details';
+import { ProjectParticipationsList } from './project-participations-list/project-participations-list';
+
+function sortPhasesByStartDate(phases: IPhase[]): IPhase[] {
+  return [...phases].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
+}
+
+function toPhaseOptions(phases: IPhase[]): SelectOption[] {
+  return sortPhasesByStartDate(phases).map((phase) => ({ label: phase.name, value: phase.id }));
+}
+
+function latestPhase(participation: IProjectParticipation): IPhase | null {
+  return sortPhasesByStartDate(participation.phases).at(-1) ?? null;
+}
 
 @Component({
   selector: 'app-project-participations',
   templateUrl: './project-participations.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [ParticipationsStore],
-  imports: [
-    DatePipe,
-    ReactiveFormsModule,
-    LucideAngularModule,
-    UiAvatar,
-    UiBadge,
-    UiButton,
-    UiCheckbox,
-    UiPagination,
-    UiSelect,
-    UiTextarea,
-    UiTableSkeleton,
-    ApiImgPipe
-  ]
+  imports: [ProjectParticipationsList, ProjectParticipationDetails]
 })
 export class ProjectParticipations {
   project = input.required<IProject>();
   #fb = inject(FormBuilder);
-  #destroyRef = inject(DestroyRef);
   #toast = inject(ToastrService);
   projectStore = inject(ProjectsStore);
   store = inject(ParticipationsStore);
-  csvFileInput = viewChild<ElementRef<HTMLInputElement>>('csvFileInput');
-  queryParams = signal<FilterParticipationsDto>({ page: null, phaseId: null, status: null });
+  queryParams = signal<FilterParticipationsDto>({ page: null, phaseId: null });
   selectedIds = signal<string[]>([]);
   selectedParticipationId = signal<string | null>(null);
   filtersForm = this.#fb.group({
-    phaseId: [''],
-    status: ['']
+    phaseId: ['']
   });
   batchForm = this.#fb.group({
     phaseId: ['', Validators.required]
   });
   reviewForm = this.#fb.group({
-    status: ['pending' as ParticipationStatus, Validators.required],
-    review_message: ['']
+    phaseId: ['', Validators.required],
+    score: ['', [Validators.required, Validators.min(0), Validators.max(100)]],
+    message: [''],
+    notifyParticipant: [false]
   });
 
   itemsPerPage = 20;
-  icons = { Search, Upload, Download, ArrowRight, ArrowLeft, X, CheckCheck, RefreshCcw };
-  statusOptions: SelectOption[] = [
-    { label: 'En attente', value: 'pending' },
-    { label: 'En revue', value: 'in_review' },
-    { label: 'Qualifié', value: 'qualified' },
-    { label: 'Disqualifié', value: 'disqualified' },
-    { label: 'Informations demandées', value: 'info_requested' }
-  ];
   currentPage = computed(() => this.queryParams().page || 1);
-  list = computed(() => this.store.list());
-  total = computed(() => this.store.total());
-  allSelectedOnPage = computed(() => {
-    const ids = this.list().map((participation) => participation.id);
-    return ids.length > 0 && ids.every((id) => this.selectedIds().includes(id));
+  phaseOptions = computed<SelectOption[]>(() => toPhaseOptions(this.project().phases));
+  reviewPhaseOptions = computed<SelectOption[]>(() => {
+    const participation = this.store.participation();
+    return participation ? toPhaseOptions(participation.phases) : [];
   });
-  phaseOptions = computed<SelectOption[]>(() =>
-    [...this.project().phases]
-      .sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())
-      .map((phase) => ({ label: phase.name, value: phase.id }))
-  );
 
   constructor() {
     effect(() => {
@@ -109,99 +70,31 @@ export class ProjectParticipations {
     });
 
     effect(() => {
-      const pageIds = new Set(this.list().map((participation) => participation.id));
+      const pageIds = new Set(this.store.list().map((participation) => participation.id));
       this.selectedIds.update((ids) => ids.filter((id) => pageIds.has(id)));
     });
 
     effect(() => {
       const participation = this.store.participation();
       if (!participation) return;
+
       this.reviewForm.patchValue({
-        status: participation.status ?? 'pending',
-        review_message: participation.review_message ?? ''
+        phaseId: latestPhase(participation)?.id ?? '',
+        score: '',
+        message: participation.review_message ?? '',
+        notifyParticipant: false
       });
     });
 
-    this.filtersForm
-      .get('q')
-      ?.valueChanges.pipe(debounceTime(500), distinctUntilChanged(), takeUntilDestroyed(this.#destroyRef))
-      .subscribe((value) => {
+    this.filtersForm.controls.phaseId.valueChanges
+      .pipe(distinctUntilChanged(), takeUntilDestroyed())
+      .subscribe((phaseId) => {
         this.queryParams.update((query) => ({
           ...query,
-          q: toSearchQueryValue(value),
+          phaseId: phaseId || null,
           page: null
         }));
       });
-
-    this.filtersForm
-      .get('phaseId')
-      ?.valueChanges.pipe(distinctUntilChanged(), takeUntilDestroyed(this.#destroyRef))
-      .subscribe((value) => {
-        this.queryParams.update((query) => ({
-          ...query,
-          phaseId: value || null,
-          page: null
-        }));
-      });
-
-    this.filtersForm
-      .get('status')
-      ?.valueChanges.pipe(distinctUntilChanged(), takeUntilDestroyed(this.#destroyRef))
-      .subscribe((value) => {
-        this.queryParams.update((query) => ({
-          ...query,
-          status: (value as ParticipationStatus) || null,
-          page: null
-        }));
-      });
-
-    this.reviewForm
-      .get('status')
-      ?.valueChanges.pipe(distinctUntilChanged(), takeUntilDestroyed(this.#destroyRef))
-      .subscribe((value) => {
-        const reviewMessageControl = this.reviewForm.get('review_message');
-        if (value === 'info_requested') {
-          reviewMessageControl?.addValidators([Validators.required, Validators.minLength(3)]);
-        } else {
-          reviewMessageControl?.removeValidators([Validators.required, Validators.minLength(3)]);
-        }
-        reviewMessageControl?.updateValueAndValidity({ emitEvent: false });
-      });
-  }
-
-  statusLabel(status: ParticipationStatus | undefined): string {
-    switch (status) {
-      case 'in_review':
-        return 'En revue';
-      case 'qualified':
-        return 'Qualifié';
-      case 'disqualified':
-        return 'Disqualifié';
-      case 'info_requested':
-        return 'Informations demandées';
-      default:
-        return 'En attente';
-    }
-  }
-
-  statusVariant(status: ParticipationStatus | undefined): 'default' | 'info' | 'success' | 'danger' | 'warning' {
-    switch (status) {
-      case 'in_review':
-        return 'info';
-      case 'qualified':
-        return 'success';
-      case 'disqualified':
-        return 'danger';
-      case 'info_requested':
-        return 'warning';
-      default:
-        return 'default';
-    }
-  }
-
-  phaseSummary(participation: IProjectParticipation): string {
-    if (!participation.phases.length) return 'Aucune phase';
-    return participation.phases.map((phase) => phase.name).join(', ');
   }
 
   onPageChange(page: number): void {
@@ -212,8 +105,8 @@ export class ProjectParticipations {
   }
 
   onResetFilters(): void {
-    this.filtersForm.patchValue({ phaseId: '', status: '' }, { emitEvent: false });
-    this.queryParams.set({ page: null, phaseId: null, status: null });
+    this.filtersForm.patchValue({ phaseId: '' }, { emitEvent: false });
+    this.queryParams.set({ page: null, phaseId: null });
   }
 
   onSelectParticipation(id: string): void {
@@ -221,33 +114,24 @@ export class ProjectParticipations {
     this.store.loadOne(id);
   }
 
-  isSelected(id: string): boolean {
-    return this.selectedIds().includes(id);
-  }
-
-  #readCheckboxValue(value: boolean | Event): boolean {
-    if (typeof value === 'boolean') return value;
-    const target = value.target as HTMLInputElement | null;
-    return !!target?.checked;
-  }
-
-  toggleSelection(id: string, checked: boolean | Event): void {
-    const nextChecked = this.#readCheckboxValue(checked);
+  toggleSelection(id: string, checked: boolean): void {
     this.selectedIds.update((ids) => {
-      if (nextChecked) {
+      if (checked) {
         return ids.includes(id) ? ids : [...ids, id];
       }
+
       return ids.filter((item) => item !== id);
     });
   }
 
-  toggleAll(checked: boolean | Event): void {
-    const nextChecked = this.#readCheckboxValue(checked);
-    const pageIds = this.list().map((participation) => participation.id);
+  toggleAll(checked: boolean): void {
+    const pageIds = this.store.list().map((participation) => participation.id);
+
     this.selectedIds.update((ids) => {
-      if (nextChecked) {
+      if (checked) {
         return Array.from(new Set([...ids, ...pageIds]));
       }
+
       return ids.filter((id) => !pageIds.includes(id));
     });
   }
@@ -265,6 +149,7 @@ export class ProjectParticipations {
 
     const phaseId = this.batchForm.getRawValue().phaseId!;
     const action = mode === 'move' ? this.store.moveToPhase : this.store.removeFromPhase;
+
     action({
       ids: this.selectedIds(),
       phaseId,
@@ -285,12 +170,15 @@ export class ProjectParticipations {
     }
 
     const value = this.reviewForm.getRawValue();
-    const reviewMessage = value.review_message?.trim();
+    const reviewMessage = value.message?.trim();
+
     this.store.review({
       participationId,
       dto: {
-        status: value.status as ParticipationStatus,
-        review_message: reviewMessage ? reviewMessage : undefined
+        phaseId: value.phaseId!,
+        score: Number(value.score),
+        message: reviewMessage || undefined,
+        notifyParticipant: !!value.notifyParticipant
       },
       onSuccess: () => this.reloadCurrentData()
     });
@@ -301,21 +189,9 @@ export class ProjectParticipations {
     this.store.clearParticipation();
   }
 
-  triggerCsvFileSelect(): void {
-    this.csvFileInput()?.nativeElement?.click();
-  }
-
-  onCsvFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
+  onImportCsv(file: File): void {
     if (!file.name.toLowerCase().endsWith('.csv')) {
       this.#toast.showError('Le fichier doit être au format CSV');
-      input.value = '';
       return;
     }
 
@@ -327,8 +203,6 @@ export class ProjectParticipations {
         this.projectStore.loadOne(this.project().slug);
       }
     });
-
-    input.value = '';
   }
 
   reloadCurrentData(): void {
@@ -337,38 +211,9 @@ export class ProjectParticipations {
       filters: this.queryParams()
     });
 
-    if (this.selectedParticipationId()) {
-      this.store.loadOne(this.selectedParticipationId()!);
+    const participationId = this.selectedParticipationId();
+    if (participationId) {
+      this.store.loadOne(participationId);
     }
-  }
-
-  participantImage(participation: IProjectParticipation): { profile: string } {
-    return { profile: participation.user.profile };
-  }
-
-  detailImage(): { profile: string } {
-    return { profile: this.store.participation()?.user.profile ?? '' };
-  }
-
-  detailLoadError(): string | null {
-    return this.store.participationError();
-  }
-
-  asPhaseTrack(phase: IPhase): string {
-    return phase.id;
-  }
-
-  rowIsActive(id: string): boolean {
-    return this.selectedParticipationId() === id;
-  }
-
-  detailReviewerLabel(): string {
-    const reviewer = this.store.participation()?.reviewed_by;
-    if (!reviewer) return 'Aucun avis enregistré';
-    return `${reviewer.name} • ${reviewer.email}`;
-  }
-
-  reviewMessageRequired(): boolean {
-    return this.reviewForm.get('status')?.value === 'info_requested';
   }
 }

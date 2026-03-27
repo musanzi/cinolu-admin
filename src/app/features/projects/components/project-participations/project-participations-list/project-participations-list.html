@@ -1,0 +1,182 @@
+<div class="flex flex-col gap-6">
+  <input
+    #csvFileInput
+    class="hidden"
+    type="file"
+    accept=".csv"
+    [disabled]="isImportingCsv()"
+    (change)="onCsvFileSelected($event)" />
+
+  <div class="flex flex-col gap-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div class="flex flex-wrap items-center gap-3">
+        <app-ui-badge [label]="totalCount().toString() + ' Participations'" />
+        @if (selectedCount() > 0) {
+          <app-ui-badge [label]="selectedCount().toString() + ' sélectionnées'" [variant]="'info'" />
+        }
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <app-ui-button
+          variant="primary"
+          [outlined]="true"
+          size="small"
+          [loading]="isImportingCsv()"
+          [disabled]="isImportingCsv()"
+          (clicked)="onTriggerCsvFileSelect()">
+          @if (!isImportingCsv()) {
+            <i-lucide [name]="icons.Upload" class="size-4" />
+          }
+          Importer CSV
+        </app-ui-button>
+        <app-ui-button
+          variant="secondary"
+          [outlined]="true"
+          size="small"
+          [disabled]="isLoading()"
+          (clicked)="reload.emit()">
+          <i-lucide [name]="icons.RefreshCcw" class="size-4" />
+          Actualiser
+        </app-ui-button>
+      </div>
+    </div>
+
+    <form [formGroup]="filtersForm()" class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_auto] lg:items-end">
+      <app-ui-select
+        [id]="'participation-phase-filter'"
+        label="Phase"
+        [options]="phaseOptions()"
+        [invalid]="false"
+        placeholder="Toutes les phases"
+        formControlName="phaseId" />
+      <div class="flex items-end gap-2">
+        <app-ui-button type="button" variant="secondary" [outlined]="true" size="small" (clicked)="resetFilters.emit()">
+          Réinitialiser
+        </app-ui-button>
+      </div>
+    </form>
+  </div>
+
+  <div class="flex flex-col gap-4">
+    <div class="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <form
+        [formGroup]="batchForm()"
+        class="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto] lg:items-end">
+        <app-ui-select
+          [id]="'participation-batch-phase'"
+          label="Phase cible"
+          [options]="phaseOptions()"
+          placeholder="Sélectionner une phase"
+          formControlName="phaseId" />
+        <app-ui-button
+          type="button"
+          variant="primary"
+          size="small"
+          [disabled]="selectedCount() === 0 || isSaving()"
+          [loading]="isSaving()"
+          (clicked)="batchAction.emit('move')">
+          <i-lucide [name]="icons.ArrowRight" class="size-4" />
+          Ajouter à la phase
+        </app-ui-button>
+        <app-ui-button
+          type="button"
+          variant="danger"
+          size="small"
+          [disabled]="selectedCount() === 0 || isSaving()"
+          [loading]="isSaving()"
+          (clicked)="batchAction.emit('remove')">
+          <i-lucide [name]="icons.X" class="size-4" />
+          Retirer de la phase
+        </app-ui-button>
+      </form>
+    </div>
+
+    <div class="rounded-lg border border-gray-200 bg-white shadow-sm">
+      @if (isLoading() && totalCount() === 0) {
+        <div class="p-5">
+          <app-ui-table-skeleton [rows]="8" [columns]="5" />
+        </div>
+      } @else if (totalCount() > 0) {
+        <div class="ui-table-wrapper">
+          <table class="ui-table">
+            <thead class="ui-table-head">
+              <tr class="ui-table-head-row">
+                <th class="ui-table-header w-14">
+                  <app-ui-checkbox
+                    [id]="'participations-select-all'"
+                    [value]="allSelectedOnPage()"
+                    (valueChange)="toggleAll.emit($event)" />
+                </th>
+                <th class="ui-table-header">Participant</th>
+                <th class="ui-table-header">Phases</th>
+                <th class="ui-table-header">Créée le</th>
+                <th class="ui-table-header">Détails</th>
+              </tr>
+            </thead>
+            <tbody class="ui-table-body">
+              @for (item of participations(); track item.id) {
+                <tr class="ui-table-row hover:bg-primary-50/30">
+                  <td class="ui-table-cell">
+                    <app-ui-checkbox
+                      [id]="'participation-select-' + item.id"
+                      [value]="isSelected(item.id)"
+                      (valueChange)="onToggleSelection(item.id, $event)" />
+                  </td>
+                  <td class="ui-table-cell">
+                    <button
+                      type="button"
+                      class="flex w-full items-center gap-3 text-left"
+                      (click)="selectParticipation.emit(item.id)">
+                      <app-ui-avatar
+                        [image]="{ profile: item.user.profile } | apiIMG: 'user'"
+                        [label]="item.user.name" />
+                      <div class="min-w-0">
+                        <p class="line-clamp-1 font-semibold text-gray-900">{{ item.user.name }}</p>
+                      </div>
+                    </button>
+                  </td>
+                  <td class="ui-table-cell text-sm text-gray-600">
+                    <span class="line-clamp-2">{{ phaseSummary(item) }}</span>
+                  </td>
+                  <td class="ui-table-cell whitespace-nowrap text-sm text-gray-600">
+                    {{ item.created_at | date: 'dd MMM yyyy' }}
+                  </td>
+                  <td class="ui-table-cell">
+                    <app-ui-button
+                      type="button"
+                      variant="primary"
+                      [outlined]="true"
+                      size="small"
+                      (clicked)="selectParticipation.emit(item.id)">
+                      <i-lucide [name]="icons.Download" class="size-4" />
+                      Ouvrir
+                    </app-ui-button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-end p-5 pt-4">
+          <app-ui-pagination
+            [currentPage]="currentPage()"
+            [totalItems]="totalCount()"
+            [itemsPerPage]="itemsPerPage()"
+            (pageChange)="pageChange.emit($event)" />
+        </div>
+      } @else {
+        <div class="flex flex-col items-start gap-3 p-8">
+          <div class="flex size-16 items-center justify-center rounded-full border border-primary-100 bg-primary-50">
+            <i-lucide [name]="icons.Search" class="size-8 text-primary-500" />
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900">Aucune participation trouvée</h3>
+            <p class="mt-1 max-w-lg text-sm leading-relaxed text-gray-500">
+              Ajustez les filtres ou importez des participants via un fichier CSV.
+            </p>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

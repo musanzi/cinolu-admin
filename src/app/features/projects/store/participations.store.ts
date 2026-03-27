@@ -10,6 +10,15 @@ import { FilterParticipationsDto } from '../dto/phases/filter-participations.dto
 import { MoveParticipationsDto } from '../dto/phases/move-participations.dto';
 import { ReviewParticipationDto } from '../dto/participations/review-participation.dto';
 
+interface ParticipationReview {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  message?: string | null;
+  score: number;
+}
+
 interface ParticipationsStoreState {
   isLoading: boolean;
   isDetailLoading: boolean;
@@ -91,7 +100,9 @@ export const ParticipationsStore = signalStore(
               onSuccess?.();
             }),
             catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors du déplacement des participants"));
+              _toast.showError(
+                extractApiErrorMessage(error, "Une erreur s'est produite lors du déplacement des participants")
+              );
               patchState(store, { isSaving: false });
               return of(null);
             })
@@ -110,7 +121,9 @@ export const ParticipationsStore = signalStore(
               onSuccess?.();
             }),
             catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors du retrait des participants"));
+              _toast.showError(
+                extractApiErrorMessage(error, "Une erreur s'est produite lors du retrait des participants")
+              );
               patchState(store, { isSaving: false });
               return of(null);
             })
@@ -122,21 +135,20 @@ export const ParticipationsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isSaving: true })),
         switchMap(({ participationId, dto, onSuccess }) =>
-          _http.patch<{ data: IProjectParticipation }>(`projects/participations/${participationId}/review`, dto).pipe(
-            tap(({ data }) => {
-              const [list, total] = store.participations();
-              const participations = list.map((participation) => (participation.id === data.id ? data : participation));
-              patchState(store, {
-                isSaving: false,
-                participations: [participations, total],
-                participation: data,
-                participationError: null
-              });
-              _toast.showSuccess('La revue de la participation a été enregistrée');
+          _http.patch<{ data: ParticipationReview }>(`projects/participations/${participationId}/review`, dto).pipe(
+            tap(() => {
+              patchState(store, { isSaving: false });
+              _toast.showSuccess(
+                dto.notifyParticipant
+                  ? 'La revue a été enregistrée et le participant a été notifié'
+                  : 'La revue a été enregistrée'
+              );
               onSuccess?.();
             }),
             catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la revue"));
+              _toast.showError(
+                extractApiErrorMessage(error, "Une erreur s'est produite lors de l'enregistrement de la revue")
+              );
               patchState(store, { isSaving: false });
               return of(null);
             })
