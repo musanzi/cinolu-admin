@@ -25,14 +25,6 @@ import { ToastrService } from '@shared/services/toast/toastr.service';
 import { SelectOption, UiAvatar, UiBadge, UiButton, UiCheckbox, UiPagination, UiSelect } from '@shared/ui';
 import { UiTableSkeleton } from '@shared/ui/table-skeleton/table-skeleton';
 
-function sortPhasesByStartDate(phases: IPhase[]): IPhase[] {
-  return [...phases].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
-}
-
-function toPhaseOptions(phases: IPhase[]): SelectOption[] {
-  return sortPhasesByStartDate(phases).map((phase) => ({ label: phase.name, value: phase.id }));
-}
-
 @Component({
   selector: 'app-project-participations-list',
   templateUrl: './project-participations-list.html',
@@ -75,7 +67,7 @@ export class ProjectParticipationsList {
   isLoading = computed(() => this.store.isLoading());
   isSaving = computed(() => this.store.isSaving());
   isImportingCsv = computed(() => this.projectStore.isImportingCsv());
-  phaseOptions = computed<SelectOption[]>(() => toPhaseOptions(this.project().phases));
+  phaseOptions = computed<SelectOption[]>(() => this.toPhaseOptions(this.project().phases));
   selectedCount = computed(() => this.selectedIds().length);
   allSelectedOnPage = computed(() => {
     const pageIds = this.participations().map((participation) => participation.id);
@@ -117,19 +109,23 @@ export class ProjectParticipationsList {
     this.csvFileInput()?.nativeElement.click();
   }
 
+  private sortPhasesByStartDate(phases: IPhase[]): IPhase[] {
+    return [...phases].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime());
+  }
+
+  private toPhaseOptions(phases: IPhase[]): SelectOption[] {
+    return this.sortPhasesByStartDate(phases).map((phase) => ({ label: phase.name, value: phase.id }));
+  }
+
   onCsvFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
-    if (!file) {
-      return;
-    }
-
+    if (!file) return;
     if (!file.name.toLowerCase().endsWith('.csv')) {
       this.toast.showError('Le fichier doit être au format CSV');
       return;
     }
-
     this.projectStore.importParticipantsCsv({
       projectId: this.project().id,
       file,
@@ -154,22 +150,15 @@ export class ProjectParticipationsList {
 
   toggleSelection(id: string, checked: boolean): void {
     this.selectedIds.update((ids) => {
-      if (checked) {
-        return ids.includes(id) ? ids : [...ids, id];
-      }
-
+      if (checked) return ids.includes(id) ? ids : [...ids, id];
       return ids.filter((item) => item !== id);
     });
   }
 
   toggleAll(checked: boolean): void {
     const pageIds = this.participations().map((participation) => participation.id);
-
     this.selectedIds.update((ids) => {
-      if (checked) {
-        return Array.from(new Set([...ids, ...pageIds]));
-      }
-
+      if (checked) return Array.from(new Set([...ids, ...pageIds]));
       return ids.filter((id) => !pageIds.includes(id));
     });
   }
@@ -179,19 +168,13 @@ export class ProjectParticipationsList {
       this.toast.showError('Sélectionnez au moins une participation');
       return;
     }
-
     if (this.batchForm.invalid) {
       this.batchForm.markAllAsTouched();
       return;
     }
-
     const phaseId = this.batchForm.getRawValue().phaseId!;
     const action = mode === 'move' ? this.store.moveToPhase : this.store.removeFromPhase;
-
-    action({
-      ids: this.selectedIds(),
-      phaseId
-    });
+    action({ ids: this.selectedIds(), phaseId });
   }
 
   reloadCurrentData(): void {
