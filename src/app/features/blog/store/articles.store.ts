@@ -1,14 +1,11 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, map, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { pipe, switchMap, tap } from 'rxjs';
 import { FilterArticlesTagsDto } from '../dto/filter-tags.dto';
-import { buildQueryParams, extractApiErrorMessage } from '@shared/helpers';
 import { IArticle, IImage } from '@shared/models';
-import { ToastrService } from '@shared/services/toast/toastr.service';
 import { ArticleDto } from '../dto/article.dto';
+import { ArticlesService } from '../services/articles.service';
 
 interface IArticlesStore {
   isLoading: boolean;
@@ -26,40 +23,31 @@ export const ArticlesStore = signalStore(
     gallery: [],
     isLoadingTags: false
   }),
-  withProps(() => ({
-    http: inject(HttpClient),
-    router: inject(Router),
-    toast: inject(ToastrService)
-  })),
-  withMethods(({ http, router, toast, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(ArticlesService);
+
+    return {
     loadAll: rxMethod<FilterArticlesTagsDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
-        switchMap((queryParams) => {
-          const params = buildQueryParams(queryParams);
-          return http.get<{ data: [IArticle[], number] }>('articles', { params }).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, articles: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, articles: [[], 0] });
-              return of(null);
+        switchMap((filters) =>
+          service.getAll(filters).pipe(
+            tap({
+              next: (articles) => patchState(store, { isLoading: false, articles }),
+              error: () => patchState(store, { isLoading: false, articles: [[], 0] })
             })
-          );
-        })
+          )
+        )
       )
     ),
     loadOne: rxMethod<string>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((slug) =>
-          http.get<{ data: IArticle }>(`articles/by-slug/${slug}`).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, article: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false });
-              return of(null);
+          service.getOne(slug).pipe(
+            tap({
+              next: (article) => patchState(store, { isLoading: false, article }),
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -69,16 +57,10 @@ export const ArticlesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((payload) =>
-          http.post<{ data: IArticle }>('articles', payload).pipe(
-            map(({ data }) => {
-              toast.showSuccess("L'article a été ajouté avec succès");
-              router.navigate(['/blog/articles']);
-              patchState(store, { isLoading: false, article: data });
-            }),
-            catchError((error) => {
-              toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de l'ajout"));
-              patchState(store, { isLoading: false });
-              return of(null);
+          service.create(payload).pipe(
+            tap({
+              next: (article) => patchState(store, { isLoading: false, article }),
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -88,18 +70,14 @@ export const ArticlesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((payload) =>
-          http.patch<{ data: IArticle }>(`articles/id/${payload.id}`, payload).pipe(
-            map(({ data }) => {
-              toast.showSuccess("L'article a été mis à jour avec succès");
-              router.navigate(['/blog/articles']);
+          service.update(payload).pipe(
+            tap({
+              next: (data) => {
               const [list, count] = store.articles();
               const updated = list.map((a) => (a.id === data.id ? data : a));
               patchState(store, { isLoading: false, article: data, articles: [updated, count] });
-            }),
-            catchError((error) => {
-              toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la mise à jour"));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -109,17 +87,14 @@ export const ArticlesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          http.delete<void>(`articles/id/${id}`).pipe(
-            map(() => {
+          service.delete(id).pipe(
+            tap({
+              next: () => {
               const [list, count] = store.articles();
               const filtered = list.filter((a) => a.id !== id);
-              toast.showSuccess("L'article a été supprimé avec succès");
               patchState(store, { isLoading: false, articles: [filtered, Math.max(0, count - 1)] });
-            }),
-            catchError((error) => {
-              toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la suppression"));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -129,19 +104,14 @@ export const ArticlesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          http.patch<{ data: IArticle }>(`articles/id/${id}/highlight`, {}).pipe(
-            map(({ data }) => {
+          service.showcase(id).pipe(
+            tap({
+              next: (data) => {
               const [list, count] = store.articles();
               const updated = list.map((a) => (a.id === data.id ? data : a));
-              toast.showSuccess(
-                data.is_highlighted ? "L'article a été mis en avant" : "L'article n'est plus mis en avant"
-              );
               patchState(store, { isLoading: false, articles: [updated, count], article: data });
-            }),
-            catchError((error) => {
-              toast.showError(extractApiErrorMessage(error, "Erreur lors de la mise en avant de l'article"));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -151,13 +121,10 @@ export const ArticlesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((slug) =>
-          http.get<{ data: IImage[] }>(`articles/by-slug/${slug}/gallery`).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, gallery: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, gallery: [] });
-              return of(null);
+          service.getGallery(slug).pipe(
+            tap({
+              next: (gallery) => patchState(store, { isLoading: false, gallery }),
+              error: () => patchState(store, { isLoading: false, gallery: [] })
             })
           )
         )
@@ -167,21 +134,19 @@ export const ArticlesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          http.delete<void>(`articles/gallery/${id}`).pipe(
-            map(() => {
+          service.deleteImage(id).pipe(
+            tap({
+              next: () => {
               const current = store.gallery();
               const filtered = current.filter((img) => img.id !== id);
               patchState(store, { isLoading: false, gallery: filtered });
-              toast.showSuccess('Image supprimée avec succès');
-            }),
-            catchError((error) => {
-              patchState(store, { isLoading: false });
-              toast.showError(extractApiErrorMessage(error, "Échec de la suppression de l'image"));
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
       )
     )
-  }))
+  };
+  })
 );

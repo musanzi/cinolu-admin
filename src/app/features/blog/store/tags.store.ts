@@ -1,13 +1,11 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, exhaustMap, map, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { exhaustMap, pipe, switchMap, tap } from 'rxjs';
 import { FilterArticlesTagsDto } from '../dto/filter-tags.dto';
-import { buildQueryParams, extractApiErrorMessage } from '@shared/helpers';
 import { ITag } from '@shared/models';
-import { ToastrService } from '@shared/services/toast/toastr.service';
 import { ArticleTagDto } from '../dto/article-tag.dto';
+import { TagsService } from '../services/tags.service';
 
 interface ITagsStore {
   isLoading: boolean;
@@ -18,25 +16,21 @@ interface ITagsStore {
 
 export const TagsStore = signalStore(
   withState<ITagsStore>({ isLoading: false, allTags: [], tags: [[], 0], lastQuery: null }),
-  withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService)
-  })),
-  withMethods(({ _http, _toast, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(TagsService);
+
+    return {
     loadUpaginated: rxMethod<void>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
-        exhaustMap(() => {
-          return _http.get<{ data: ITag[] }>('tags').pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, allTags: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, allTags: [] });
-              return of(null);
+        exhaustMap(() =>
+          service.getAllUnpaginated().pipe(
+            tap({
+              next: (allTags) => patchState(store, { isLoading: false, allTags }),
+              error: () => patchState(store, { isLoading: false, allTags: [] })
             })
-          );
-        })
+          )
+        )
       )
     ),
     loadAll: rxMethod<FilterArticlesTagsDto>(
@@ -44,14 +38,10 @@ export const TagsStore = signalStore(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((queryParams) => {
           patchState(store, { lastQuery: queryParams });
-          const params = buildQueryParams(queryParams);
-          return _http.get<{ data: [ITag[], number] }>('tags/paginated', { params }).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, tags: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, tags: [[], 0] });
-              return of(null);
+          return service.getAll(queryParams).pipe(
+            tap({
+              next: (tags) => patchState(store, { isLoading: false, tags }),
+              error: () => patchState(store, { isLoading: false, tags: [[], 0] })
             })
           );
         })
@@ -61,8 +51,9 @@ export const TagsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ payload, onSuccess }) =>
-          _http.post<{ data: ITag }>('tags', payload).pipe(
-            map(({ data }) => {
+          service.create(payload).pipe(
+            tap({
+              next: (data) => {
               const [tags, count] = store.tags();
               const allTags = store.allTags();
               const hasTag = allTags.some((tag) => tag.id === data.id);
@@ -70,14 +61,10 @@ export const TagsStore = signalStore(
                 tags: [[data, ...tags], count + 1],
                 allTags: hasTag ? allTags : [data, ...allTags]
               });
-              _toast.showSuccess('Tag ajoutée avec succès');
               patchState(store, { isLoading: false });
               onSuccess(data);
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Échec de l'ajout du tag"));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -87,19 +74,16 @@ export const TagsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ id, payload, onSuccess }) =>
-          _http.patch<{ data: ITag }>(`tags/id/${id}`, payload).pipe(
-            map(({ data }) => {
+          service.update(id, payload).pipe(
+            tap({
+              next: (data) => {
               const [tags, count] = store.tags();
               const updated = tags.map((t) => (t.id === data.id ? data : t));
               patchState(store, { tags: [updated, count] });
-              _toast.showSuccess('Tag mise à jour');
               patchState(store, { isLoading: false });
               onSuccess();
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, 'Échec de la mise à jour'));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -109,22 +93,20 @@ export const TagsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ id }) =>
-          _http.delete<void>(`tags/id/${id}`).pipe(
-            map(() => {
+          service.delete(id).pipe(
+            tap({
+              next: () => {
               const [tags, count] = store.tags();
               const filtered = tags.filter((tag) => tag.id !== id);
               patchState(store, { tags: [filtered, count - 1] });
               patchState(store, { isLoading: false });
-              _toast.showSuccess('Tag supprimée avec succès');
-            }),
-            catchError((error) => {
-              patchState(store, { isLoading: false });
-              _toast.showError(extractApiErrorMessage(error, 'Échec de la suppression du tag'));
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
       )
     )
-  }))
+  };
+  })
 );

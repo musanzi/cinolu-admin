@@ -1,14 +1,11 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, map, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { pipe, switchMap, tap } from 'rxjs';
 import { FilterUsersDto } from '../dto/users/filter-users.dto';
-import { buildQueryParams, extractApiErrorMessage } from '@shared/helpers';
 import { IUser } from '@shared/models';
-import { ToastrService } from '@shared/services/toast/toastr.service';
-import { Router } from '@angular/router';
 import { UserDto } from '../dto/users/user.dto';
+import { UsersService } from '../services/users.service';
 
 interface IUsersStore {
   isLoading: boolean;
@@ -30,40 +27,31 @@ export const UsersStore = signalStore(
     user: null,
     staff: []
   }),
-  withProps(() => ({
-    http: inject(HttpClient),
-    toast: inject(ToastrService),
-    router: inject(Router)
-  })),
-  withMethods(({ http, toast, router, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(UsersService);
+
+    return {
     loadAll: rxMethod<FilterUsersDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
-        switchMap((queryParams) => {
-          const params = buildQueryParams(queryParams);
-          return http.get<{ data: [IUser[], number] }>('users', { params }).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, users: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, users: [[], 0] });
-              return of(null);
+        switchMap((filters) =>
+          service.getAll(filters).pipe(
+            tap({
+              next: (users) => patchState(store, { isLoading: false, users }),
+              error: () => patchState(store, { isLoading: false, users: [[], 0] })
             })
-          );
-        })
+          )
+        )
       )
     ),
     loadStaff: rxMethod<void>(
       pipe(
-        tap(() => patchState(store, { isLoading: true } as Partial<IUsersStore>)),
+        tap(() => patchState(store, { isLoading: true })),
         switchMap(() =>
-          http.get<{ data: IUser[] }>('users/staff').pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, staff: data } as Partial<IUsersStore>);
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, staff: [] } as Partial<IUsersStore>);
-              return of(null);
+          service.getStaff().pipe(
+            tap({
+              next: (staff) => patchState(store, { isLoading: false, staff }),
+              error: () => patchState(store, { isLoading: false, staff: [] })
             })
           )
         )
@@ -73,13 +61,10 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((email) =>
-          http.get<{ data: IUser }>(`users/by-email/${email}`).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, user: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, user: null });
-              return of(null);
+          service.getOne(email).pipe(
+            tap({
+              next: (user) => patchState(store, { isLoading: false, user }),
+              error: () => patchState(store, { isLoading: false, user: null })
             })
           )
         )
@@ -89,16 +74,10 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((dto) =>
-          http.post<{ data: IUser }>('users', dto).pipe(
-            map(({ data }) => {
-              router.navigate(['/users']);
-              toast.showSuccess('Utilisateur ajouté avec succès');
-              patchState(store, { isLoading: false, user: data });
-            }),
-            catchError((error) => {
-              toast.showError(extractApiErrorMessage(error, "Erreur lors de l'ajout de l'utilisateur"));
-              patchState(store, { isLoading: false });
-              return of(null);
+          service.create(dto).pipe(
+            tap({
+              next: (user) => patchState(store, { isLoading: false, user }),
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -108,16 +87,10 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isUpdating: true })),
         switchMap((params) =>
-          http.patch<{ data: IUser }>(`users/id/${params.id}`, params.dto).pipe(
-            map(({ data }) => {
-              router.navigate(['/users']);
-              toast.showSuccess('Utilisateur mis à jour avec succès');
-              patchState(store, { isUpdating: false, user: data });
-            }),
-            catchError((error) => {
-              toast.showError(extractApiErrorMessage(error, "Erreur lors de la mise à jour de l'utilisateur"));
-              patchState(store, { isUpdating: false });
-              return of(null);
+          service.update(params.id, params.dto).pipe(
+            tap({
+              next: (user) => patchState(store, { isUpdating: false, user }),
+              error: () => patchState(store, { isUpdating: false })
             })
           )
         )
@@ -127,17 +100,14 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((userId) =>
-          http.delete<void>(`users/id/${userId}`).pipe(
-            map(() => {
+          service.delete(userId).pipe(
+            tap({
+              next: () => {
               const [list, count] = store.users();
               const filtered = list.filter((u) => u.id !== userId);
               patchState(store, { isLoading: false, users: [filtered, Math.max(0, count - 1)] });
-              toast.showSuccess('Utilisateur supprimé avec succès');
-            }),
-            catchError((error) => {
-              patchState(store, { isLoading: false });
-              toast.showError(extractApiErrorMessage(error, "Échec de la suppression de l'utilisateur"));
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -147,16 +117,13 @@ export const UsersStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ onSuccess }) =>
-          http.delete<void>('users/clear').pipe(
-            tap(() => {
-              patchState(store, { isLoading: false });
-              toast.showSuccess('Utilisateurs invalides supprimés avec succès');
-              onSuccess();
-            }),
-            catchError((error) => {
-              patchState(store, { isLoading: false });
-              toast.showError(extractApiErrorMessage(error, 'Échec de la suppression des utilisateurs invalides'));
-              return of(null);
+          service.clearInvalidUsers().pipe(
+            tap({
+              next: () => {
+                patchState(store, { isLoading: false });
+                onSuccess();
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -165,46 +132,32 @@ export const UsersStore = signalStore(
     download: rxMethod<FilterUsersDto>(
       pipe(
         tap(() => patchState(store, { isDownloading: true })),
-        switchMap((queryParams) => {
-          const params = buildQueryParams(queryParams);
-          return http.get('users/export/users.csv', { params, responseType: 'blob' }).pipe(
-            tap((blob) => {
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'users.csv';
-              a.click();
-              window.URL.revokeObjectURL(url);
-              patchState(store, { isDownloading: false });
-            }),
-            catchError(() => {
-              patchState(store, { isDownloading: false });
-              return of(null);
+        switchMap((queryParams) =>
+          service.download(queryParams).pipe(
+            tap({
+              next: () => patchState(store, { isDownloading: false }),
+              error: () => patchState(store, { isDownloading: false })
             })
-          );
-        })
+          )
+        )
       )
     ),
     importCsv: rxMethod<{ file: File; onSuccess: () => void }>(
       pipe(
         tap(() => patchState(store, { isImportingCsv: true })),
-        switchMap(({ file, onSuccess }) => {
-          const formData = new FormData();
-          formData.append('file', file);
-          return http.post<unknown>('users/import-csv', formData).pipe(
-            tap(() => {
-              toast.showSuccess('Utilisateurs importés avec succès');
-              patchState(store, { isImportingCsv: false });
-              onSuccess();
-            }),
-            catchError((error) => {
-              toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de l'import des utilisateurs"));
-              patchState(store, { isImportingCsv: false });
-              return of(null);
+        switchMap(({ file, onSuccess }) =>
+          service.importCsv(file).pipe(
+            tap({
+              next: () => {
+                patchState(store, { isImportingCsv: false });
+                onSuccess();
+              },
+              error: () => patchState(store, { isImportingCsv: false })
             })
-          );
-        })
+          )
+        )
       )
     )
-  }))
+  };
+  })
 );

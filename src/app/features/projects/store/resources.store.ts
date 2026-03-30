@@ -1,14 +1,12 @@
 import { inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { patchState, signalStore, withComputed, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { computed } from '@angular/core';
-import { catchError, of, pipe, switchMap, tap } from 'rxjs';
-import { buildQueryParams, extractApiErrorMessage } from '@shared/helpers';
+import { pipe, switchMap, tap } from 'rxjs';
 import { IResource } from '@shared/models';
-import { ToastrService } from '@shared/services/toast/toastr.service';
 import { CreateResourceDto, UpdateResourceDto } from '../dto/resources/create-resource.dto';
 import { FilterResourcesDto } from '../dto/resources/filter-resources.dto';
+import { ResourcesService } from '../services/resources.service';
 
 interface ResourcesStoreState {
   isLoading: boolean;
@@ -22,15 +20,13 @@ export const ResourcesStore = signalStore(
     isSaving: false,
     resources: [[], 0]
   }),
-  withProps(() => ({
-    http: inject(HttpClient),
-    toast: inject(ToastrService)
-  })),
   withComputed(({ resources }) => ({
     list: computed(() => resources()[0]),
     total: computed(() => resources()[1])
   })),
-  withMethods(({ http, toast, ...store }) => {
+  withMethods((store) => {
+    const service = inject(ResourcesService);
+
     const upsert = (resource: IResource): void => {
       const [list, total] = store.resources();
       const exists = list.some((item) => item.id === resource.id);
@@ -45,105 +41,80 @@ export const ResourcesStore = signalStore(
       loadAll: rxMethod<{ projectId: string; filters: FilterResourcesDto }>(
         pipe(
           tap(() => patchState(store, { isLoading: true })),
-          switchMap((params) => {
-            const queryParams = buildQueryParams(params.filters);
-            return http
-              .get<{ data: [IResource[], number] }>(`resources/project/${params.projectId}`, { params: queryParams })
-              .pipe(
-                tap(({ data }) => patchState(store, { isLoading: false, resources: data })),
-                catchError(() => {
-                  patchState(store, { isLoading: false, resources: [[], 0] });
-                  return of(null);
-                })
-              );
-          })
+          switchMap(({ projectId, filters }) =>
+            service.getAll(projectId, filters).pipe(
+              tap({
+                next: (resources) => patchState(store, { isLoading: false, resources }),
+                error: () => patchState(store, { isLoading: false, resources: [[], 0] })
+              })
+            )
+          )
         )
       ),
       create: rxMethod<{ dto: CreateResourceDto; file: File; onSuccess?: () => void }>(
         pipe(
           tap(() => patchState(store, { isSaving: true })),
-          switchMap(({ dto, file, onSuccess }) => {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('title', dto.title);
-            formData.append('description', dto.description);
-            formData.append('category', dto.category);
-            if (dto.project_id) formData.append('project_id', dto.project_id);
-            if (dto.phase_id) formData.append('phase_id', dto.phase_id);
-            return http.post<{ data: IResource }>('resources', formData).pipe(
-              tap(({ data }) => {
+          switchMap(({ dto, file, onSuccess }) =>
+            service.create(dto, file).pipe(
+              tap({
+                next: (data) => {
                 upsert(data);
                 patchState(store, { isSaving: false });
-                toast.showSuccess('La ressource a été créée avec succès');
                 onSuccess?.();
-              }),
-              catchError((error) => {
-                patchState(store, { isSaving: false });
-                toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la création de la ressource"));
-                return of(null);
+                },
+                error: () => patchState(store, { isSaving: false })
               })
-            );
-          })
+            )
+          )
         )
       ),
       update: rxMethod<{ id: string; dto: UpdateResourceDto; onSuccess?: () => void }>(
         pipe(
           tap(() => patchState(store, { isSaving: true })),
           switchMap(({ id, dto, onSuccess }) =>
-            http.patch<{ data: IResource }>(`resources/id/${id}`, dto).pipe(
-              tap(({ data }) => {
+            service.update(id, dto).pipe(
+              tap({
+                next: (data) => {
                 upsert(data);
                 patchState(store, { isSaving: false });
-                toast.showSuccess('La ressource a été mise à jour');
                 onSuccess?.();
-              }),
-              catchError((error) => {
-                patchState(store, { isSaving: false });
-                toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la mise à jour"));
-                return of(null);
+                },
+                error: () => patchState(store, { isSaving: false })
               })
             )
           )
         )
       ),
       replaceFile: rxMethod<{ id: string; file: File }>(
-        pipe(
+      pipe(
           tap(() => patchState(store, { isSaving: true })),
           switchMap(({ id, file }) => {
-            const formData = new FormData();
-            formData.append('file', file);
-            return http.patch<{ data: IResource }>(`resources/file/${id}`, formData).pipe(
-              tap(({ data }) => {
+            return service.replaceFile(id, file).pipe(
+              tap({
+                next: (data) => {
                 upsert(data);
                 patchState(store, { isSaving: false });
-                toast.showSuccess('Le fichier a été remplacé');
-              }),
-              catchError((error) => {
-                patchState(store, { isSaving: false });
-                toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors du remplacement du fichier"));
-                return of(null);
+                },
+                error: () => patchState(store, { isSaving: false })
               })
             );
           })
         )
       ),
       delete: rxMethod<string>(
-        pipe(
+      pipe(
           tap(() => patchState(store, { isSaving: true })),
           switchMap((id) =>
-            http.delete<void>(`resources/id/${id}`).pipe(
-              tap(() => {
+            service.delete(id).pipe(
+              tap({
+                next: () => {
                 const [list, total] = store.resources();
                 patchState(store, {
                   isSaving: false,
                   resources: [list.filter((item) => item.id !== id), Math.max(0, total - 1)]
                 });
-                toast.showSuccess('La ressource a été supprimée');
-              }),
-              catchError((error) => {
-                patchState(store, { isSaving: false });
-                toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la suppression"));
-                return of(null);
+                },
+                error: () => patchState(store, { isSaving: false })
               })
             )
           )

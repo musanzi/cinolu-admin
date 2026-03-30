@@ -1,11 +1,9 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, map, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { ToastrService } from '@shared/services/toast/toastr.service';
+import { pipe, switchMap, tap } from 'rxjs';
 import { IImage } from '@shared/models';
-import { extractApiErrorMessage } from '@shared/helpers';
+import { EventGalleryService } from '../services/event-gallery.service';
 
 interface IGalleryStore {
   isLoading: boolean;
@@ -14,22 +12,18 @@ interface IGalleryStore {
 
 export const GalleryStore = signalStore(
   withState<IGalleryStore>({ isLoading: false, gallery: [] }),
-  withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService)
-  })),
-  withMethods(({ _http, _toast, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(EventGalleryService);
+
+    return {
     loadAll: rxMethod<string>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((slug) =>
-          _http.get<{ data: IImage[] }>(`events/by-slug/${slug}/gallery`).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, gallery: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, gallery: [] });
-              return of(null);
+          service.getAll(slug).pipe(
+            tap({
+              next: (gallery) => patchState(store, { isLoading: false, gallery }),
+              error: () => patchState(store, { isLoading: false, gallery: [] })
             })
           )
         )
@@ -39,21 +33,19 @@ export const GalleryStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          _http.delete<void>(`events/gallery/${id}`).pipe(
-            map(() => {
+          service.delete(id).pipe(
+            tap({
+              next: () => {
               const current = store.gallery();
               const filtered = current.filter((img) => img.id !== id);
               patchState(store, { isLoading: false, gallery: filtered });
-              _toast.showSuccess('Image supprimée avec succès');
-            }),
-            catchError((error) => {
-              patchState(store, { isLoading: false });
-              _toast.showError(extractApiErrorMessage(error, "Échec de la suppression de l'image"));
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
       )
     )
-  }))
+  };
+  })
 );

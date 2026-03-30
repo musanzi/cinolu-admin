@@ -1,12 +1,10 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, exhaustMap, map, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { ToastrService } from '@shared/services/toast/toastr.service';
+import { exhaustMap, pipe, switchMap, tap } from 'rxjs';
 import { SubprogramDto } from '../dto/subprograms/subprogram.dto';
 import { ISubprogram } from '@shared/models';
-import { extractApiErrorMessage } from '@shared/helpers';
+import { SubprogramsService } from '../services/subprograms.service';
 
 interface IProgramsStore {
   isLoading: boolean;
@@ -15,22 +13,18 @@ interface IProgramsStore {
 
 export const SubprogramsStore = signalStore(
   withState<IProgramsStore>({ isLoading: false, subprograms: [] }),
-  withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService)
-  })),
-  withMethods(({ _http, _toast, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(SubprogramsService);
+
+    return {
     loadAll: rxMethod<string>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          _http.get<{ data: ISubprogram[] }>(`subprograms/program/${id}`).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, subprograms: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, subprograms: [] });
-              return of(null);
+          service.getAll(id).pipe(
+            tap({
+              next: (subprograms) => patchState(store, { isLoading: false, subprograms }),
+              error: () => patchState(store, { isLoading: false, subprograms: [] })
             })
           )
         )
@@ -39,41 +33,35 @@ export const SubprogramsStore = signalStore(
     create: rxMethod<{ payload: SubprogramDto; onSuccess: () => void }>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
-        switchMap(({ payload, onSuccess }) => {
-          return _http.post<{ data: ISubprogram }>('subprograms', payload).pipe(
-            map(({ data }) => {
+        switchMap(({ payload, onSuccess }) =>
+          service.create(payload).pipe(
+            tap({
+              next: (data) => {
               const list = store.subprograms();
               patchState(store, { subprograms: [data, ...list] });
-              _toast.showSuccess('Sous programme ajouté');
               patchState(store, { isLoading: false });
               onSuccess();
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Échec de l'ajout du sous programme"));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
-          );
-        })
+          )
+        )
       )
     ),
     update: rxMethod<{ payload: SubprogramDto; onSuccess: () => void }>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ payload, onSuccess }) =>
-          _http.patch<{ data: ISubprogram }>(`subprograms/id/${payload.id}`, payload).pipe(
-            map(({ data }) => {
+          service.update(payload).pipe(
+            tap({
+              next: (data) => {
               const list = store.subprograms();
               const updated = list.map((sp) => (sp.id === data.id ? data : sp));
               patchState(store, { subprograms: updated });
-              _toast.showSuccess('Sous programme mis à jour');
               patchState(store, { isLoading: false });
               onSuccess();
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, 'Échec de la mise à jour'));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -83,17 +71,14 @@ export const SubprogramsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          _http.delete<void>(`subprograms/id/${id}`).pipe(
-            map(() => {
+          service.delete(id).pipe(
+            tap({
+              next: () => {
               const list = store.subprograms();
               const filtered = list.filter((subprogram) => subprogram.id !== id);
               patchState(store, { subprograms: filtered, isLoading: false });
-              _toast.showSuccess('Programme supprimé');
-            }),
-            catchError((error) => {
-              patchState(store, { isLoading: false });
-              _toast.showError(extractApiErrorMessage(error, 'Échec de la suppression'));
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -103,15 +88,14 @@ export const SubprogramsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          _http.patch<{ data: ISubprogram }>(`subprograms/id/${id}/publish`, {}).pipe(
-            map(({ data }) => {
+          service.publish(id).pipe(
+            tap({
+              next: (data) => {
               const list = store.subprograms();
               const updated = list.map((sp) => (sp.id === data.id ? data : sp));
               patchState(store, { subprograms: updated, isLoading: false });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -121,20 +105,15 @@ export const SubprogramsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          _http.patch<{ data: ISubprogram }>(`subprograms/id/${id}/highlight`, {}).pipe(
-            map(({ data }) => {
+          service.showcase(id).pipe(
+            tap({
+              next: (data) => {
               const list = store.subprograms();
               const updated = list.map((sp) => (sp.id === data.id ? data : sp));
               patchState(store, { subprograms: updated });
-              _toast.showSuccess(
-                data.is_highlighted ? 'Programme mis en avant' : 'Programme retiré de la mise en avant'
-              );
               patchState(store, { isLoading: false });
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, 'Erreur lors de la mise en avant du programme'));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -144,17 +123,15 @@ export const SubprogramsStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         exhaustMap(() =>
-          _http.get<{ data: ISubprogram[] }>(`subprograms`).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, subprograms: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, subprograms: [] });
-              return of(null);
+          service.getAllUnpaginated().pipe(
+            tap({
+              next: (subprograms) => patchState(store, { isLoading: false, subprograms }),
+              error: () => patchState(store, { isLoading: false, subprograms: [] })
             })
           )
         )
       )
     )
-  }))
+  };
+  })
 );

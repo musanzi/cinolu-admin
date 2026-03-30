@@ -1,14 +1,9 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { ToastrService } from '@shared/services/toast/toastr.service';
-import { IUser } from '@shared/models';
-import { AuthStore } from '@core/auth/auth.store';
+import { pipe, switchMap, tap } from 'rxjs';
 import { SignInDto } from '../dto/sign-in.dto';
-import { Router } from '@angular/router';
-import { extractApiErrorMessage } from '@shared/helpers';
+import { SignInService } from '../services/sign-in.service';
 
 interface ISignInStore {
   isLoading: boolean;
@@ -24,33 +19,26 @@ export const SignInStore = signalStore(
   withState<ISignInStore>({
     isLoading: false
   }),
-  withProps(() => ({
-    http: inject(HttpClient),
-    toast: inject(ToastrService),
-    router: inject(Router),
-    authStore: inject(AuthStore)
-  })),
-  withMethods(({ http, toast, authStore, router, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(SignInService);
+
+    return {
     signIn: rxMethod<ISignInParams>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
-        switchMap(({ payload, redirectPath, onSuccess }) => {
-          return http.post<{ data: IUser }>('auth/signin', payload).pipe(
-            tap(({ data }) => {
-              patchState(store, { isLoading: false });
-              authStore.setUser(data);
-              toast.showSuccess('Connexion réussie');
-              router.navigate([redirectPath]);
-              onSuccess();
-            }),
-            catchError((err) => {
-              patchState(store, { isLoading: false });
-              toast.showError(extractApiErrorMessage(err, 'Erreur de connexion'));
-              return of(null);
+        switchMap(({ payload, redirectPath, onSuccess }) =>
+          service.signIn(payload, redirectPath).pipe(
+            tap({
+              next: () => {
+                patchState(store, { isLoading: false });
+                onSuccess();
+              },
+              error: () => patchState(store, { isLoading: false })
             })
-          );
-        })
+          )
+        )
       )
     )
-  }))
+  };
+  })
 );

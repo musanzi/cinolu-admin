@@ -53,7 +53,7 @@ export class ProjectParticipationDetails implements OnDestroy {
   participation = computed<IProjectParticipation | null>(() => this.store.participation());
   isLoading = computed(() => this.store.isDetailLoading());
   isSaving = computed(() => this.store.isSaving());
-  error = computed(() => this.store.participationError());
+  error = computed(() => this.store.error());
   sortedReviews = computed<IProjectParticipationReview[]>(() => {
     const reviews = this.participation()?.reviews ?? [];
     return [...reviews].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -102,6 +102,13 @@ export class ProjectParticipationDetails implements OnDestroy {
       }
 
       this.resetReviewForm(false);
+    });
+
+    effect(() => {
+      if (!this.store.isSaving() && !this.store.error()) {
+        this.selectedReviewId.set(null);
+        this.store.loadOne(this.participationId());
+      }
     });
   }
 
@@ -186,11 +193,7 @@ export class ProjectParticipationDetails implements OnDestroy {
             score: Number(value.score),
             message: message || undefined,
             notifyParticipant: !!value.notifyParticipant
-          },
-      onSuccess: () => {
-        this.selectedReviewId.set(null);
-        this.store.loadOne(participationId);
-      }
+          }
     });
   }
 }

@@ -1,12 +1,10 @@
-import { patchState, signalStore, withComputed, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { computed, inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, map, of, pipe, switchMap, tap } from 'rxjs';
-import { ToastrService } from '@shared/services/toast/toastr.service';
+import { pipe, switchMap, tap } from 'rxjs';
 import { IMentorProfile, IPhase } from '@shared/models';
 import { PhaseDto } from '../dto/phases/phase.dto';
-import { HttpClient } from '@angular/common/http';
-import { extractApiErrorMessage } from '@shared/helpers';
+import { PhasesService } from '../services/phases.service';
 
 interface IPhasesStore {
   isLoading: boolean;
@@ -24,107 +22,91 @@ export const PhasesStore = signalStore(
     phase: null,
     mentors: []
   }),
-  withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService)
-  })),
   withComputed(({ phases }) => ({
     sortedPhases: computed(() =>
       phases().sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())
     )
   })),
-  withMethods(({ _http, _toast, ...store }) => ({
-    loadAll: rxMethod<string>(
-      pipe(
-        tap(() => patchState(store, { isLoading: true })),
-        switchMap((id) => {
-          return _http.get<{ data: IPhase[] }>(`phases/project/${id}`).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, phases: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, phases: [] });
-              return of(null);
-            })
-          );
-        })
-      )
-    ),
-    loadMentors: rxMethod<void>(
-      pipe(
-        tap(() => patchState(store, { isMentorsLoading: true })),
-        switchMap(() =>
-          _http.get<{ data: IMentorProfile[] }>('mentors').pipe(
-            map(({ data }) => {
-              patchState(store, { isMentorsLoading: false, mentors: data });
-            }),
-            catchError(() => {
-              patchState(store, { isMentorsLoading: false, mentors: [] });
-              return of(null);
-            })
-          )
-        )
-      )
-    ),
-    create: rxMethod<{ projectId: string; dto: PhaseDto; onSuccess: () => void }>(
-      pipe(
-        tap(() => patchState(store, { isLoading: true })),
-        switchMap(({ dto, projectId, onSuccess }) => {
-          delete dto?.id;
-          return _http.post<{ data: IPhase }>(`phases/project/${projectId}`, dto).pipe(
-            map(({ data }) => {
-              _toast.showSuccess('La phase a été créée avec succès');
-              const phases = [...store.phases(), data];
-              patchState(store, { isLoading: false, phases, phase: data });
-              onSuccess();
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la création de la phase"));
-              patchState(store, { isLoading: false });
-              return of(null);
-            })
-          );
-        })
-      )
-    ),
-    update: rxMethod<{ dto: PhaseDto & { id: string }; onSuccess: () => void }>(
-      pipe(
-        tap(() => patchState(store, { isLoading: true })),
-        switchMap(({ dto, onSuccess }) => {
-          return _http.patch<{ data: IPhase }>(`phases/id/${dto.id}`, dto).pipe(
-            map(({ data }) => {
-              _toast.showSuccess('La phase a été mise à jour avec succès');
-              const phases = store.phases().map((p) => (p.id === data.id ? data : p));
-              patchState(store, { isLoading: false, phases });
-              onSuccess();
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la mise à jour"));
-              patchState(store, { isLoading: false });
-              return of(null);
-            })
-          );
-        })
-      )
-    ),
-    delete: rxMethod<string>(
+  withMethods((store) => {
+    const service = inject(PhasesService);
+
+    return {
+      loadAll: rxMethod<string>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap((id) =>
-          _http.delete<void>(`phases/id/${id}`).pipe(
-            tap(() => {
-              _toast.showSuccess('La phase a été supprimée avec succès');
-              const phases = store.phases().filter((p) => p.id !== id);
-              patchState(store, { isLoading: false, phases, phase: null });
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Une erreur s'est produite lors de la suppression"));
-              patchState(store, { isLoading: false });
-              return of(null);
+          service.getAll(id).pipe(
+            tap({
+              next: (phases) => patchState(store, { isLoading: false, phases }),
+              error: () => patchState(store, { isLoading: false, phases: [] })
             })
           )
         )
       )
-    )
-  }))
+    ),
+      loadMentors: rxMethod<void>(
+      pipe(
+        tap(() => patchState(store, { isMentorsLoading: true })),
+        switchMap(() =>
+          service.getMentors().pipe(
+            tap({
+              next: (mentors) => patchState(store, { isMentorsLoading: false, mentors }),
+              error: () => patchState(store, { isMentorsLoading: false, mentors: [] })
+            })
+          )
+        )
+      )
+    ),
+      create: rxMethod<{ projectId: string; dto: PhaseDto; onSuccess: () => void }>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap(({ dto, projectId, onSuccess }) =>
+          service.create(projectId, dto).pipe(
+            tap({
+              next: (data) => {
+                const phases = [...store.phases(), data];
+                patchState(store, { isLoading: false, phases, phase: data });
+                onSuccess();
+              },
+              error: () => patchState(store, { isLoading: false })
+            })
+          )
+        )
+      )
+    ),
+      update: rxMethod<{ dto: PhaseDto & { id: string }; onSuccess: () => void }>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap(({ dto, onSuccess }) =>
+          service.update(dto).pipe(
+            tap({
+              next: (data) => {
+                const phases = store.phases().map((p) => (p.id === data.id ? data : p));
+                patchState(store, { isLoading: false, phases });
+                onSuccess();
+              },
+              error: () => patchState(store, { isLoading: false })
+            })
+          )
+        )
+      )
+    ),
+      delete: rxMethod<string>(
+      pipe(
+        tap(() => patchState(store, { isLoading: true })),
+        switchMap((id) =>
+          service.delete(id).pipe(
+            tap({
+              next: () => {
+                const phases = store.phases().filter((p) => p.id !== id);
+                patchState(store, { isLoading: false, phases, phase: null });
+              },
+              error: () => patchState(store, { isLoading: false })
+            })
+          )
+        )
+      )
+      )
+    };
+  })
 );

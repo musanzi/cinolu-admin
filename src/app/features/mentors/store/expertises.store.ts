@@ -1,13 +1,11 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, map, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
-import { buildQueryParams, extractApiErrorMessage } from '@shared/helpers';
-import { ToastrService } from '@shared/services/toast/toastr.service';
+import { pipe, switchMap, tap } from 'rxjs';
 import { IExpertise } from '@shared/models';
 import { FilterExpertisesDto } from '../dto/expertises/filter-expertises.dto';
 import { ExpertiseDto } from '../dto/expertises/expertise.dto';
+import { ExpertisesService } from '../services/expertises.service';
 
 interface IExpertisesStore {
   isLoading: boolean;
@@ -21,39 +19,31 @@ export const ExpertisesStore = signalStore(
     expertises: [[], 0],
     allExpertises: []
   }),
-  withProps(() => ({
-    _http: inject(HttpClient),
-    _toast: inject(ToastrService)
-  })),
-  withMethods(({ _http, _toast, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(ExpertisesService);
+
+    return {
     loadAll: rxMethod<FilterExpertisesDto>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
-        switchMap((queryParams) => {
-          const params = buildQueryParams(queryParams);
-          return _http.get<{ data: [IExpertise[], number] }>('expertises/paginated', { params }).pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, expertises: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, expertises: [[], 0] });
-              return of(null);
+        switchMap((filters) =>
+          service.getAll(filters).pipe(
+            tap({
+              next: (expertises) => patchState(store, { isLoading: false, expertises }),
+              error: () => patchState(store, { isLoading: false, expertises: [[], 0] })
             })
-          );
-        })
+          )
+        )
       )
     ),
     loadUnpaginated: rxMethod<void>(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(() =>
-          _http.get<{ data: IExpertise[] }>('expertises').pipe(
-            map(({ data }) => {
-              patchState(store, { isLoading: false, allExpertises: data });
-            }),
-            catchError(() => {
-              patchState(store, { isLoading: false, allExpertises: [] });
-              return of(null);
+          service.getAllUnpaginated().pipe(
+            tap({
+              next: (allExpertises) => patchState(store, { isLoading: false, allExpertises }),
+              error: () => patchState(store, { isLoading: false, allExpertises: [] })
             })
           )
         )
@@ -63,8 +53,9 @@ export const ExpertisesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ payload, onSuccess }) =>
-          _http.post<{ data: IExpertise }>('expertises', payload).pipe(
-            map(({ data }) => {
+          service.create(payload).pipe(
+            tap({
+              next: (data) => {
               const [list, count] = store.expertises();
               const nextAllExpertises = [
                 data,
@@ -75,13 +66,9 @@ export const ExpertisesStore = signalStore(
                 expertises: [[data, ...list], count + 1],
                 allExpertises: nextAllExpertises
               });
-              _toast.showSuccess('Expertise ajoutée avec succès');
               onSuccess(data);
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Échec de l'ajout de l'expertise"));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -91,9 +78,9 @@ export const ExpertisesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ id, payload, onSuccess }) =>
-          _http.patch<{ data: IExpertise }>(`expertises/id/${id}`, payload).pipe(
-            map(({ data }) => {
-              _toast.showSuccess('Expertise mise à jour');
+          service.update(id, payload).pipe(
+            tap({
+              next: (data) => {
               const [list, count] = store.expertises();
               const updated = list.map((e) => (e.id === data.id ? data : e));
               const allExpertises = store
@@ -101,11 +88,8 @@ export const ExpertisesStore = signalStore(
                 .map((expertise) => (expertise.id === data.id ? data : expertise));
               patchState(store, { isLoading: false, expertises: [updated, count], allExpertises });
               onSuccess();
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, 'Échec de la mise à jour'));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
@@ -115,23 +99,21 @@ export const ExpertisesStore = signalStore(
       pipe(
         tap(() => patchState(store, { isLoading: true })),
         switchMap(({ id }) =>
-          _http.delete<void>(`expertises/id/${id}`).pipe(
-            map(() => {
+          service.delete(id).pipe(
+            tap({
+              next: () => {
               const [list, count] = store.expertises();
               const filtered = list.filter((e) => e.id !== id);
               const allExpertises = store.allExpertises().filter((expertise) => expertise.id !== id);
               patchState(store, { expertises: [filtered, Math.max(0, count - 1)], allExpertises });
-              _toast.showSuccess('Expertise supprimée avec succès');
               patchState(store, { isLoading: false });
-            }),
-            catchError((error) => {
-              _toast.showError(extractApiErrorMessage(error, "Échec de la suppression de l'expertise"));
-              patchState(store, { isLoading: false });
-              return of(null);
+              },
+              error: () => patchState(store, { isLoading: false })
             })
           )
         )
       )
     )
-  }))
+  };
+  })
 );

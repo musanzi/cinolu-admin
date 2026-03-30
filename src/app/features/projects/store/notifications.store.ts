@@ -1,20 +1,13 @@
 import { inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { patchState, signalStore, withComputed, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { computed } from '@angular/core';
-import { catchError, concatMap, map, of, pipe, switchMap, tap } from 'rxjs';
-import { buildQueryParams, extractApiErrorMessage } from '@shared/helpers';
-import { INotification, INotificationAttachment } from '@shared/models';
-import { ToastrService } from '@shared/services/toast/toastr.service';
+import { pipe, tap, switchMap } from 'rxjs';
+import { INotification } from '@shared/models';
 import { NotifyParticipantsDto } from '../dto/notifications/notify-participants.dto';
-import { NotificationStatus } from '../types';
+import { FilterProjectNotificationsDto, NotificationsService } from '../services/notifications.service';
 
-export interface FilterProjectNotificationsDto {
-  page?: number | null;
-  phaseId?: string | null;
-  status?: NotificationStatus | null;
-}
+export type { FilterProjectNotificationsDto } from '../services/notifications.service';
 
 interface NotificationsStoreState {
   isLoading: boolean;
@@ -32,15 +25,13 @@ export const NotificationsStore = signalStore(
     activeNotification: null,
     error: null
   }),
-  withProps(() => ({
-    http: inject(HttpClient),
-    toast: inject(ToastrService)
-  })),
   withComputed(({ notifications }) => ({
     list: computed(() => notifications()[0]),
     total: computed(() => notifications()[1])
   })),
-  withMethods(({ http, toast, ...store }) => {
+  withMethods((store) => {
+    const service = inject(NotificationsService);
+
     const upsertNotification = (notification: INotification): void => {
       const [list, total] = store.notifications();
       const exists = list.some((item) => item.id === notification.id);
@@ -52,44 +43,26 @@ export const NotificationsStore = signalStore(
         activeNotification: notification
       });
     };
-    const uploadAttachments = (notification: INotification, attachments: File[]) => {
-      if (!attachments.length) {
-        return of(notification);
-      }
-      const formData = new FormData();
-      attachments.forEach((file) => formData.append('attachments', file));
-      return http
-        .post<{ data: INotificationAttachment[] }>(`notifications/id/${notification.id}/attachments`, formData)
-        .pipe(map(({ data }) => ({ ...notification, attachments: data })));
-    };
-    const fail = (error: unknown, fallback: string) => {
-      const message = extractApiErrorMessage(error, fallback);
-      patchState(store, { isSaving: false, error: message });
-      toast.showError(message);
-      return of(null);
-    };
     return {
       loadAll: rxMethod<{ projectId: string; filters: FilterProjectNotificationsDto }>(
         pipe(
           tap(() => patchState(store, { isLoading: true })),
-          switchMap(({ projectId, filters }) => {
-            const params = buildQueryParams(filters);
-            return http.get<{ data: [INotification[], number] }>(`notifications/project/${projectId}`, { params }).pipe(
-              tap(({ data }) => {
-                const [list] = data;
+          switchMap(({ projectId, filters }) =>
+            service.getAll(projectId, filters).pipe(
+              tap({
+                next: (notifications) => {
+                  const [list] = notifications;
                 const activeId = store.activeNotification()?.id;
                 patchState(store, {
                   isLoading: false,
-                  notifications: data,
+                    notifications,
                   activeNotification: activeId ? (list.find((item) => item.id === activeId) ?? null) : null
                 });
-              }),
-              catchError(() => {
-                patchState(store, { isLoading: false, notifications: [[], 0], activeNotification: null });
-                return of(null);
+                },
+                error: () => patchState(store, { isLoading: false, notifications: [[], 0], activeNotification: null })
               })
-            );
-          })
+            )
+          )
         )
       ),
       create: rxMethod<{
@@ -101,16 +74,15 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ projectId, dto, attachments = [], onSuccess }) =>
-            http.post<{ data: INotification }>(`projects/id/${projectId}/notifications`, dto).pipe(
-              map(({ data }) => data),
-              concatMap((notification) => uploadAttachments(notification, attachments)),
-              tap((notification) => {
-                upsertNotification(notification);
-                patchState(store, { isSaving: false, error: null });
-                toast.showSuccess('La notification a été enregistrée');
-                onSuccess?.(notification);
-              }),
-              catchError((error) => fail(error, "Une erreur s'est produite lors de la création de la notification"))
+            service.create(projectId, dto, attachments).pipe(
+              tap({
+                next: (notification) => {
+                  upsertNotification(notification);
+                  patchState(store, { isSaving: false, error: null });
+                  onSuccess?.(notification);
+                },
+                error: (error) => patchState(store, { isSaving: false, error: String(error) })
+              })
             )
           )
         )
@@ -124,16 +96,15 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ notificationId, dto, attachments = [], onSuccess }) =>
-            http.patch<{ data: INotification }>(`notifications/id/${notificationId}`, dto).pipe(
-              map(({ data }) => data),
-              concatMap((notification) => uploadAttachments(notification, attachments)),
-              tap((notification) => {
-                upsertNotification(notification);
-                patchState(store, { isSaving: false, error: null });
-                toast.showSuccess('La notification a été mise à jour');
-                onSuccess?.(notification);
-              }),
-              catchError((error) => fail(error, "Une erreur s'est produite lors de la mise à jour de la notification"))
+            service.update(notificationId, dto, attachments).pipe(
+              tap({
+                next: (notification) => {
+                  upsertNotification(notification);
+                  patchState(store, { isSaving: false, error: null });
+                  onSuccess?.(notification);
+                },
+                error: (error) => patchState(store, { isSaving: false, error: String(error) })
+              })
             )
           )
         )
@@ -142,14 +113,15 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ notificationId, onSuccess }) =>
-            http.post<{ data: INotification }>(`projects/notifications/${notificationId}/send`, {}).pipe(
-              tap(({ data }) => {
-                upsertNotification(data);
-                patchState(store, { isSaving: false, error: null });
-                toast.showSuccess('La notification a été envoyée');
-                onSuccess?.(data);
-              }),
-              catchError((error) => fail(error, "Une erreur s'est produite lors de l'envoi de la notification"))
+            service.send(notificationId).pipe(
+              tap({
+                next: (notification) => {
+                  upsertNotification(notification);
+                  patchState(store, { isSaving: false, error: null });
+                  onSuccess?.(notification);
+                },
+                error: (error) => patchState(store, { isSaving: false, error: String(error) })
+              })
             )
           )
         )
@@ -158,8 +130,9 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ notificationId }) =>
-            http.delete<void>(`notifications/id/${notificationId}`).pipe(
-              tap(() => {
+            service.delete(notificationId).pipe(
+              tap({
+                next: () => {
                 const [list, total] = store.notifications();
                 patchState(store, {
                   isSaving: false,
@@ -167,9 +140,9 @@ export const NotificationsStore = signalStore(
                   activeNotification:
                     store.activeNotification()?.id === notificationId ? null : store.activeNotification()
                 });
-                toast.showSuccess('La notification a été supprimée');
-              }),
-              catchError((error) => fail(error, "Une erreur s'est produite lors de la suppression de la notification"))
+                },
+                error: (error) => patchState(store, { isSaving: false, error: String(error) })
+              })
             )
           )
         )

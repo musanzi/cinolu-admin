@@ -70,7 +70,7 @@ export class ProjectParticipationsList {
   icons = { Upload, RefreshCcw, ArrowRight, X, Search, Download };
   itemsPerPage = 20;
   currentPage = computed(() => this.queryParams().page || 1);
-  participations = computed(() => this.store.list());
+  participations = computed(() => this.store.participations());
   totalCount = computed(() => this.store.total());
   isLoading = computed(() => this.store.isLoading());
   isSaving = computed(() => this.store.isSaving());
@@ -93,6 +93,13 @@ export class ProjectParticipationsList {
     effect(() => {
       const pageIds = new Set(this.participations().map((participation) => participation.id));
       this.selectedIds.update((ids) => ids.filter((id) => pageIds.has(id)));
+    });
+
+    effect(() => {
+      if (!this.store.isSaving() && !this.store.error()) {
+        this.selectedIds.set([]);
+        this.reloadCurrentData();
+      }
     });
 
     this.filtersForm.controls.phaseId.valueChanges
@@ -183,11 +190,7 @@ export class ProjectParticipationsList {
 
     action({
       ids: this.selectedIds(),
-      phaseId,
-      onSuccess: () => {
-        this.selectedIds.set([]);
-        this.reloadCurrentData();
-      }
+      phaseId
     });
   }
 

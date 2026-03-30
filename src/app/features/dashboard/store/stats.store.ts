@@ -1,9 +1,9 @@
-import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { inject } from '@angular/core';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, map, of, pipe, switchMap, tap } from 'rxjs';
-import { HttpClient } from '@angular/common/http';
+import { pipe, switchMap, tap } from 'rxjs';
 import type { IGeneralStats, IStatsByYear } from '../types/stats.type';
+import { StatsService } from '../services/stats.service';
 
 interface IStatsStore {
   isLoadingGeneral: boolean;
@@ -23,20 +23,18 @@ export const StatsStore = signalStore(
     byYear: null,
     selectedYear: currentYear
   }),
-  withProps(() => ({
-    _http: inject(HttpClient)
-  })),
-  withMethods(({ _http, ...store }) => ({
+  withMethods((store) => {
+    const service = inject(StatsService);
+
+    return {
     loadGeneral: rxMethod<void>(
       pipe(
         tap(() => patchState(store, { isLoadingGeneral: true })),
         switchMap(() =>
-          _http.get<{ data: IGeneralStats } | IGeneralStats>('stats/admin/overview').pipe(
-            map((res) => ('data' in res ? res.data : res)),
-            tap((data) => patchState(store, { isLoadingGeneral: false, general: data })),
-            catchError(() => {
-              patchState(store, { isLoadingGeneral: false, general: null });
-              return of(null);
+          service.getGeneral().pipe(
+            tap({
+              next: (general) => patchState(store, { isLoadingGeneral: false, general }),
+              error: () => patchState(store, { isLoadingGeneral: false, general: null })
             })
           )
         )
@@ -46,16 +44,15 @@ export const StatsStore = signalStore(
       pipe(
         tap((year) => patchState(store, { isLoadingByYear: true, selectedYear: year })),
         switchMap((year) =>
-          _http.get<{ data: IStatsByYear } | IStatsByYear>(`stats/admin/year/${year}`).pipe(
-            map((res) => ('data' in res ? res.data : res)),
-            tap((data) => patchState(store, { isLoadingByYear: false, byYear: data })),
-            catchError(() => {
-              patchState(store, { isLoadingByYear: false, byYear: null });
-              return of(null);
+          service.getByYear(year).pipe(
+            tap({
+              next: (byYear) => patchState(store, { isLoadingByYear: false, byYear }),
+              error: () => patchState(store, { isLoadingByYear: false, byYear: null })
             })
           )
         )
       )
     )
-  }))
+  };
+  })
 );
