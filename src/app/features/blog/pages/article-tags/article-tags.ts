@@ -26,7 +26,6 @@ import { UiTableSkeleton } from '@shared/ui/table-skeleton/table-skeleton';
     UiBadge
   ],
   templateUrl: './article-tags.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ArticleTags {

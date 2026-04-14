@@ -7,7 +7,6 @@ import type { IGeneralStats } from '../../types';
   selector: 'app-stats-overview',
   templateUrl: './stats-overview.html',
   imports: [LucideAngularModule],
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StatsOverview {

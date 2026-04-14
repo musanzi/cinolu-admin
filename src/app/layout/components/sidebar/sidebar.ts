@@ -14,7 +14,6 @@ import { NgOptimizedImage } from '@angular/common';
   selector: 'app-sidebar',
   imports: [RouterModule, LucideAngularModule, NgOptimizedImage],
   templateUrl: './sidebar.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class Sidebar {

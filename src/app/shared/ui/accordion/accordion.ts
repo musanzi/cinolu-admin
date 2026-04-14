@@ -3,7 +3,6 @@ import { Component, input, signal, ChangeDetectionStrategy } from '@angular/core
 @Component({
   selector: 'app-ui-accordion',
   templateUrl: './accordion.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class UiAccordion {

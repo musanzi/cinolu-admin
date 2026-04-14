@@ -8,7 +8,6 @@ import type { IProgramParticipations } from '../../types';
   selector: 'app-program-details',
   templateUrl: './program-details.html',
   imports: [LucideAngularModule, UiAccordion, UiAccordionPanel, UiAccordionHeader, UiAccordionContent],
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ProgramDetails {

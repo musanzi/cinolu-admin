@@ -7,7 +7,6 @@ import type { IProgramParticipations } from '../../types';
   selector: 'app-program-tabs',
   templateUrl: './program-tabs.html',
   imports: [LucideAngularModule],
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ProgramTabs {

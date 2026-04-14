@@ -13,7 +13,6 @@ import { UiButton, UiInput, UiSelect, UiTextarea } from '@shared/ui';
   providers: [ProgramsStore, CategoriesStore, ProgramSectorsStore],
   imports: [ReactiveFormsModule, UiButton, UiInput, UiSelect, UiTextarea, LucideAngularModule],
   templateUrl: './add-program.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AddProgramPage {

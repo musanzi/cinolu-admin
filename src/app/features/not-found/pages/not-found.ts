@@ -9,7 +9,6 @@ import { UiButton } from '@ui';
   selector: 'app-not-found',
   imports: [LucideAngularModule, RouterModule, UiButton],
   templateUrl: './not-found.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NotFoundPage {

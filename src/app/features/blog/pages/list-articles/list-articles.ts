@@ -31,7 +31,6 @@ import { bindSearchControlToQuery, toPageQueryValue } from '@shared/helpers';
     UiBadge
   ],
   templateUrl: './list-articles.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ListArticles {

@@ -13,7 +13,6 @@ import { ArticleGalleryComponent } from '../../components/article-gallery/articl
   providers: [ArticlesStore],
   imports: [CommonModule, UiTabs, ArticleUpdate, ArticleGalleryComponent, LucideAngularModule, UiButton],
   templateUrl: './article-details.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ArticleDetails implements OnInit {

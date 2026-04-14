@@ -5,7 +5,6 @@ import { NgOptimizedImage } from '@angular/common';
   selector: 'app-ui-avatar',
   imports: [NgOptimizedImage],
   templateUrl: './avatar.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class UiAvatar {

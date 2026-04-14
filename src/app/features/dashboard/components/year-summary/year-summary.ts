@@ -7,7 +7,6 @@ import { YEAR_SUMMARY_ICONS } from '@shared/data';
   selector: 'app-year-summary',
   templateUrl: './year-summary.html',
   imports: [LucideAngularModule],
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class YearSummary {

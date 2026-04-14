@@ -8,7 +8,6 @@ import { ConfirmationService } from '@shared/services/confirmation';
   selector: 'app-ui-confirm-dialog',
   imports: [UiButton, LucideAngularModule],
   templateUrl: './confirm-dialog.html',
-
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class UiConfirmDialog {
