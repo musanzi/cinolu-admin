@@ -19,10 +19,4 @@ Use `pnpm` for all commands.
 
 ## Coding Style & Naming Conventions
 
-Follow `.editorconfig`: UTF-8, spaces, and 2-space indentation. Prettier enforces 120-character lines, single quotes, and no trailing commas. Prefer path aliases such as `@core/*`, `@shared/*`, and `@features/*` over long relative imports. Keep Angular selectors aligned with the existing conventions: components use `app-...` kebab-case and directives use `app...` camelCase.
-
-## Component and Page Structure
-
-Match the `events` feature when adding new screens. Pages such as `pages/list-events/` or `pages/event-details/` should be route-level containers: they read route params/query params, provide feature stores, trigger initial loads, and compose child components. Feature components such as `components/event-update/` should own a focused form or section and receive data through `input()` where possible. Use `ui/` only for lightweight presentational pieces like `event-details-skeleton` with little or no business logic.
-
-Keep one folder per page or component with paired `*.ts` and `*.html` files. Prefer slim pages that delegate form and section logic to components, and keep store interaction close to the container that owns the workflow.
+Follow `.editorconfig`: UTF-8, spaces, and 2-space indentation. Prettier enforces 120-character lines, single quotes, and no trailing commas. Prefer path aliases such as `@core/*`, `@shared/*`, and `@features/*` over long relative imports. Keep Angular selectors aligned with the existing conventions: components use `app-...` kebab-case and directives use `app...` camelCase. Match the existing feature layout: `pages/`, `components/`, `services/`, `store/`, `types/` and `dto/`. and section logic to components, and keep store interaction close to the container that owns the workflow.
