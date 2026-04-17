@@ -17,4 +17,4 @@ Use `pnpm` for all commands.
 
 ## Coding Style & Naming Conventions
 
-Follow `.editorconfig`: UTF-8, spaces, and 2-space indentation. Prettier enforces 120-character lines, single quotes, and no trailing commas. Prefer path aliases such as `@core/*`, `@shared/*`, and `@features/*` over long relative imports. Keep Angular selectors aligned with the existing conventions: components use `app-...` kebab-case and directives use `app...` camelCase. Match the existing feature layout: `pages/`, `components/`, `services/`, `store/`, `types/` and `dto/`. and section logic to components, and keep store interaction close to the container that owns the workflow.
+Follow `.editorconfig`: UTF-8, spaces, and 2-space indentation. Prettier enforces 120-character lines, single quotes, and no trailing commas. Prefer path aliases such as `@core/*`, `@shared/*`, and `@features/*` over long relative imports. Keep Angular selectors aligned with the existing conventions: components use `app-...` kebab-case and directives use `app...` camelCase. Match the existing feature layout: `pages/`, `components/`, `services/`, `store/`, `types/` and `dto/`.
