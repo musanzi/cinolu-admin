@@ -4,8 +4,6 @@
 
 This repository is an Angular 21 admin app with SSR. Application code lives in `src/`. Use `src/app/core/` for auth, guards, interceptors, and app-wide providers; `src/app/features/` for route-level domains such as `projects`, `users`, and `programs`; `src/app/shared/` for reusable UI, models, pipes, and helpers; and `src/app/layout/` for the admin shell. Static assets live in `public/`, global styles in `src/styles/`, and environment files in `src/environments/`.
 
-Within a feature, follow the `src/app/features/events/` layout: keep route containers in `pages/`, reusable feature-specific building blocks in `components/`, small presentational fragments in `ui/`, request shapes in `dto/`, API logic in `services/`, and signal stores in `store/`. Keep routes in `<feature>.routes.ts`.
-
 ## Build, Test, and Development Commands
 
 Use `pnpm` for all commands.
