@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { LucideAngularModule } from 'lucide-angular';
 import { OPPORTUNITY_DETAILS_ICONS } from '@shared/data';
-import { type IOpportunity } from '@shared/models';
+import { IOpportunity } from '@shared/models';
 import { ApiImgPipe } from '@shared/pipes/api-img.pipe';
 import { FileUpload } from '@shared/ui';
 

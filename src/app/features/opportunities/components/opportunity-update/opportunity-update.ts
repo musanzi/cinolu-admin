@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, input, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { markAllAsTouched, parseDate } from '@shared/helpers';
-import { OpportunityLanguage, type IOpportunity } from '@shared/models';
+import { formatDate, markAllAsTouched, parseDate } from '@shared/helpers';
+import { OpportunityLanguage, IOpportunity } from '@shared/models';
 import { SelectOption, UiButton, UiDatepicker, UiInput, UiSelect, UiTextarea } from '@shared/ui';
 import { OpportunitiesStore } from '../../store/opportunities.store';
 
@@ -41,23 +41,10 @@ export class OpportunityUpdate implements OnInit {
       markAllAsTouched(this.form);
       return;
     }
-
     const value = this.form.getRawValue();
     this.store.update({
-      id: String(value.id),
-      title: String(value.title),
-      description: String(value.description),
-      due_date: this.toApiDate(value.due_date),
-      link: String(value.link),
-      language: value.language as OpportunityLanguage
+      ...value,
+      due_date: formatDate(value.due_date)
     });
-  }
-
-  private toApiDate(value: unknown): string {
-    const date = value instanceof Date ? value : new Date(String(value));
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   }
 }

@@ -1,8 +1,8 @@
 import { inject } from '@angular/core';
-import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
+import { patchState, signalStore, withComputed, withMethods, withProps, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { computed } from '@angular/core';
-import { pipe, tap, switchMap } from 'rxjs';
+import { catchError, EMPTY, finalize, pipe, switchMap, tap } from 'rxjs';
 import { INotification } from '@shared/models';
 import { NotifyParticipantsDto } from '../dto/notifications/notify-participants.dto';
 import { FilterProjectNotificationsDto, NotificationsService } from '../services/notifications.service';
@@ -29,9 +29,10 @@ export const NotificationsStore = signalStore(
     list: computed(() => notifications()[0]),
     total: computed(() => notifications()[1])
   })),
-  withMethods((store) => {
-    const service = inject(NotificationsService);
-
+  withProps(() => ({
+    _notificationsService: inject(NotificationsService)
+  })),
+  withMethods(({ _notificationsService, ...store }) => {
     const upsertNotification = (notification: INotification): void => {
       const [list, total] = store.notifications();
       const exists = list.some((item) => item.id === notification.id);
@@ -48,7 +49,7 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isLoading: true })),
           switchMap(({ projectId, filters }) =>
-            service.getAll(projectId, filters).pipe(
+            _notificationsService.getAll(projectId, filters).pipe(
               tap({
                 next: (notifications) => {
                   const [list] = notifications;
@@ -58,9 +59,13 @@ export const NotificationsStore = signalStore(
                     notifications,
                     activeNotification: activeId ? (list.find((item) => item.id === activeId) ?? null) : null
                   });
-                },
-                error: () => patchState(store, { isLoading: false, notifications: [[], 0], activeNotification: null })
-              })
+                }
+              }),
+              catchError(() => {
+                patchState(store, { notifications: [[], 0], activeNotification: null });
+                return EMPTY;
+              }),
+              finalize(() => patchState(store, { isLoading: false }))
             )
           )
         )
@@ -74,15 +79,19 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ projectId, dto, attachments = [], onSuccess }) =>
-            service.create(projectId, dto, attachments).pipe(
+            _notificationsService.create(projectId, dto, attachments).pipe(
               tap({
                 next: (notification) => {
                   upsertNotification(notification);
                   patchState(store, { isSaving: false, error: null });
                   onSuccess?.(notification);
-                },
-                error: (error) => patchState(store, { isSaving: false, error: String(error) })
-              })
+                }
+              }),
+              catchError((error) => {
+                patchState(store, { error: String(error) });
+                return EMPTY;
+              }),
+              finalize(() => patchState(store, { isSaving: false }))
             )
           )
         )
@@ -96,15 +105,19 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ notificationId, dto, attachments = [], onSuccess }) =>
-            service.update(notificationId, dto, attachments).pipe(
+            _notificationsService.update(notificationId, dto, attachments).pipe(
               tap({
                 next: (notification) => {
                   upsertNotification(notification);
                   patchState(store, { isSaving: false, error: null });
                   onSuccess?.(notification);
-                },
-                error: (error) => patchState(store, { isSaving: false, error: String(error) })
-              })
+                }
+              }),
+              catchError((error) => {
+                patchState(store, { error: String(error) });
+                return EMPTY;
+              }),
+              finalize(() => patchState(store, { isSaving: false }))
             )
           )
         )
@@ -113,15 +126,19 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ notificationId, onSuccess }) =>
-            service.send(notificationId).pipe(
+            _notificationsService.send(notificationId).pipe(
               tap({
                 next: (notification) => {
                   upsertNotification(notification);
                   patchState(store, { isSaving: false, error: null });
                   onSuccess?.(notification);
-                },
-                error: (error) => patchState(store, { isSaving: false, error: String(error) })
-              })
+                }
+              }),
+              catchError((error) => {
+                patchState(store, { error: String(error) });
+                return EMPTY;
+              }),
+              finalize(() => patchState(store, { isSaving: false }))
             )
           )
         )
@@ -130,7 +147,7 @@ export const NotificationsStore = signalStore(
         pipe(
           tap(() => patchState(store, { isSaving: true, error: null })),
           switchMap(({ notificationId }) =>
-            service.delete(notificationId).pipe(
+            _notificationsService.delete(notificationId).pipe(
               tap({
                 next: () => {
                   const [list, total] = store.notifications();
@@ -140,9 +157,13 @@ export const NotificationsStore = signalStore(
                     activeNotification:
                       store.activeNotification()?.id === notificationId ? null : store.activeNotification()
                   });
-                },
-                error: (error) => patchState(store, { isSaving: false, error: String(error) })
-              })
+                }
+              }),
+              catchError((error) => {
+                patchState(store, { error: String(error) });
+                return EMPTY;
+              }),
+              finalize(() => patchState(store, { isSaving: false }))
             )
           )
         )
