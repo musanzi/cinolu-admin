@@ -78,7 +78,9 @@ export const OpportunitiesStore = signalStore(
           _opportunitiesService.update(payload).pipe(
             tap({
               next: (opportunity) => {
-                const opportunities = store.opportunities().map((item) => (item.id === opportunity.id ? opportunity : item));
+                const opportunities = store
+                  .opportunities()
+                  .map((item) => (item.id === opportunity.id ? opportunity : item));
                 patchState(store, { isLoading: false, opportunity, opportunities });
               }
             }),
